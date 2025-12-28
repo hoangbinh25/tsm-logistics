@@ -1,0 +1,289 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+
+/* === ENUMS === */
+
+enum VaiTroNguoiDung {
+  QUAN_LY
+  TAI_XE
+  KHACH_HANG
+}
+
+enum TrangThaiTaiKhoan {
+  ACTIVE
+  LOCKED
+  PENDING
+  DISABLED
+}
+
+enum TrangThaiCongTac {
+  DANG_HOAT_DONG
+  TAM_NGUNG
+  NGHI_VIEC
+}
+
+enum TrangThaiDonHang {
+  TAO_MOI
+  CHO_XAC_NHAN
+  DA_PHAN_CONG
+  DANG_VAN_CHUYEN
+  DA_GIAO
+  GIAO_KHONG_THANH_CONG
+  DA_HUY
+}
+
+enum HinhThucThanhToan {
+  COD
+  ONLINE
+}
+
+enum TrangThaiPhuongTien {
+  SAN_SANG
+  DANG_VAN_CHUYEN
+  BAO_DUONG
+  HU_HONG
+  NGUNG_HOAT_DONG
+}
+
+enum LoaiKho {
+  KHO_CHINH
+  KHO_TRUNG_CHUYEN
+  KHO_LUU_TRU
+}
+
+enum TrangThaiKho {
+  HOAT_DONG
+  TAM_DUNG
+  DONG_CUA
+}
+
+enum LoaiDichVu {
+  NOI_TINH
+  LIEN_TINH
+}
+
+enum TrangThaiDichVu {
+  HOAT_DONG
+  TAM_DUNG
+  NGUNG_CUNG_CAP
+}
+
+enum TrangThaiPhanCong {
+  MOI
+  DA_XAC_NHAN
+  DANG_THUC_HIEN
+  HOAN_THANH
+  HUY
+}
+
+enum TrangThaiThanhToan {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+/* === MODELS === */
+
+model NguoiDung {
+  id                   String            @id @db.Char(26)
+  ho_ten               String
+  so_dien_thoai         String            @unique
+  email                String?           @unique
+  dia_chi              String
+  anh_dai_dien          String?
+  ten_dang_nhap         String
+  mat_khau_ma_hoa       String
+  vai_tro              VaiTroNguoiDung
+  so_lan_dang_nhap_sai  Int
+  trang_thai_tai_khoan  TrangThaiTaiKhoan
+  thoi_gian_tao         DateTime          @default(now())
+  thoi_gian_cap_nhat    DateTime          @updatedAt
+
+  tai_xe_profile        TaiXeProfile?
+  don_hang_khach        DonHang[]         @relation("DonHang_KhachHang")
+  don_hang_nguoi_tao    DonHang[]         @relation("DonHang_NguoiTao")
+  thanh_toan            ThanhToan[]
+  phan_cong_tai_xe      PhanCongDonHang[] @relation("PhanCong_TaiXe")
+}
+
+model TaiXeProfile {
+  id                   String            @id @db.Char(26)
+  nguoi_dung_id         String            @unique @db.Char(26)
+  so_giay_phep_lai_xe    String            @unique
+  hang_bang_lai          String
+  ngay_het_han_gplx      DateTime          @db.Date
+  kinh_nghiem_nam        Int
+  trang_thai_cong_tac    TrangThaiCongTac
+  mat_khau_ma_hoa        String
+  vai_tro               VaiTroNguoiDung
+  so_lan_dang_nhap_sai   Int
+  trang_thai_tai_khoan   TrangThaiTaiKhoan
+  thoi_gian_tao          DateTime          @default(now())
+  thoi_gian_cap_nhat     DateTime          @updatedAt
+
+  nguoi_dung            NguoiDung         @relation(fields: [nguoi_dung_id], references: [id])
+}
+
+model DonHang {
+  id                    String            @id @db.Char(26)
+  ma_don_hang            String            @unique
+  khach_hang_id          String            @db.Char(26)
+  nguoi_tao_id           String            @db.Char(26)
+  kho_gui_id             String            @db.Char(26)
+  kho_nhan_id            String?           @db.Char(26)
+  dia_chi_nhan           String
+  dia_chi_giao           String
+  tong_khoi_luong        Decimal           @db.Decimal(14,2)
+  tong_tien_hang         Decimal           @db.Decimal(14,2)
+  phi_van_chuyen         Decimal           @db.Decimal(14,2)
+  giam_gia               Decimal           @db.Decimal(14,2)
+  tong_thanh_toan        Decimal           @db.Decimal(14,2)
+  trang_thai_don_hang    TrangThaiDonHang
+  hinh_thuc_thanh_toan   HinhThucThanhToan
+  thoi_gian_dat          DateTime?
+  thoi_gian_du_kien_giao DateTime?
+  thoi_gian_hoan_thanh   DateTime?
+  ghi_chu                String?
+  thoi_gian_tao          DateTime          @default(now())
+  thoi_gian_cap_nhat     DateTime          @updatedAt
+
+  khach_hang             NguoiDung         @relation("DonHang_KhachHang", fields: [khach_hang_id], references: [id])
+  nguoi_tao              NguoiDung         @relation("DonHang_NguoiTao", fields: [nguoi_tao_id], references: [id])
+  kho_gui                KhoHang           @relation("KhoGui", fields: [kho_gui_id], references: [id])
+  kho_nhan               KhoHang?          @relation("KhoNhan", fields: [kho_nhan_id], references: [id])
+
+  chi_tiet               ChiTietDonHang[]
+  thanh_toan             ThanhToan[]
+  phan_cong              PhanCongDonHang[]
+
+  @@index([khach_hang_id])
+  @@index([nguoi_tao_id])
+  @@index([kho_gui_id])
+  @@index([kho_nhan_id])
+}
+
+model ChiTietDonHang {
+  id                String           @id @db.Char(26)
+  don_hang_id        String           @db.Char(26)
+  ma_dich_vu         String           @db.Char(26)
+  ten_hang_hoa       String
+  mo_ta              String
+  so_luong           Int
+  don_vi_tinh        String
+  khoi_luong         Decimal          @db.Decimal(14,2)
+  don_gia            Decimal          @db.Decimal(14,2)
+  thanh_tien         Decimal          @db.Decimal(14,2)
+  thoi_gian_tao      DateTime         @default(now())
+  thoi_gian_cap_nhat DateTime         @updatedAt
+
+  don_hang          DonHang          @relation(fields: [don_hang_id], references: [id])
+  dich_vu           DichVuVanChuyen  @relation(fields: [ma_dich_vu], references: [id])
+
+  @@index([don_hang_id])
+  @@index([ma_dich_vu])
+}
+
+model ThanhToan {
+  id                String    @id @db.Char(26)
+  don_hang_id        String    @db.Char(26)
+  khach_hang_id      String    @db.Char(26)
+  so_tien            Decimal   @db.Decimal(14,2)
+  phuong_thuc        HinhThucThanhToan
+  trang_thai         TrangThaiThanhToan @default(PENDING)
+  ma_giao_dich          String?            @unique
+  nha_cung_cap          String?            
+  noi_dung_thanh_toan   String?            
+  thoi_gian_thanh_toan  DateTime?          
+  thoi_gian_tao      DateTime  @default(now())
+  thoi_gian_cap_nhat DateTime  @updatedAt
+
+  don_hang          DonHang   @relation(fields: [don_hang_id], references: [id])
+  khach_hang        NguoiDung @relation(fields: [khach_hang_id], references: [id])
+
+  @@index([don_hang_id])
+  @@index([khach_hang_id])
+  @@index([trang_thai])
+}
+
+model PhuongTien {
+  id                   String              @id @db.Char(26)
+  bien_kiem_soat         String              @unique
+  loai_phuong_tien       String
+  hang_xe               String
+  model                 String
+  nam_san_xuat           Int
+  tai_trong_toi_da       Decimal             @db.Decimal(14,2)
+  the_tich_thung         Decimal             @db.Decimal(14,2)
+  trang_thai            TrangThaiPhuongTien
+  ngay_dang_kiem         DateTime            @db.Date
+  ngay_het_han_dang_kiem DateTime            @db.Date
+  ghi_chu               String?
+  thoi_gian_tao          DateTime            @default(now())
+  thoi_gian_cap_nhat     DateTime            @updatedAt
+
+  phan_cong             PhanCongDonHang[]   @relation("PhanCong_PhuongTien")
+}
+
+model KhoHang {
+  id                String       @id @db.Char(26)
+  ma_kho             String       @unique
+  ten_kho            String
+  dia_chi            String
+  tinh_thanh         String
+  quan_huyen         String
+  phuong_xa          String
+  loai_kho           LoaiKho
+  suc_chua_toi_da     Decimal?     @db.Decimal(14,2)
+  trang_thai         TrangThaiKho
+  ghi_chu            String?
+  thoi_gian_tao       DateTime      @default(now())
+  thoi_gian_cap_nhat  DateTime      @updatedAt
+
+  don_gui           DonHang[]     @relation("KhoGui")
+  don_nhan          DonHang[]     @relation("KhoNhan")
+}
+
+model DichVuVanChuyen {
+  id                String          @id @db.Char(26)
+  ma_dich_vu         String          @unique
+  ten_dich_vu        String
+  mo_ta             String
+  loai_dich_vu       LoaiDichVu
+  don_vi_tinh        String
+  gia_co_ban         Decimal         @db.Decimal(14,2)
+  chinh_sach_gia     String
+  trang_thai         TrangThaiDichVu
+  thoi_gian_tao      DateTime        @default(now())
+  thoi_gian_cap_nhat DateTime        @updatedAt
+
+  chi_tiet           ChiTietDonHang[]
+}
+
+model PhanCongDonHang {
+  id                       String             @id @db.Char(26)
+  don_hang_id               String             @db.Char(26)
+  tai_xe_id                 String             @db.Char(26)
+  phuong_tien_id            String             @db.Char(26)
+  thoi_gian_phan_cong        DateTime
+  thoi_gian_ket_thuc_du_kien DateTime
+  trang_thai_phan_cong      TrangThaiPhanCong
+  ghi_chu                   String?
+  thoi_gian_tao              DateTime           @default(now())
+  thoi_gian_cap_nhat         DateTime           @updatedAt
+
+  don_hang                  DonHang            @relation(fields: [don_hang_id], references: [id])
+  tai_xe                    NguoiDung          @relation("PhanCong_TaiXe", fields: [tai_xe_id], references: [id])
+  phuong_tien               PhuongTien         @relation("PhanCong_PhuongTien", fields: [phuong_tien_id], references: [id])
+
+  @@index([don_hang_id])
+  @@index([tai_xe_id])
+  @@index([phuong_tien_id])
+}

@@ -1,0 +1,30 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tsm_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: tsm_db
+      MYSQL_USER: tsm_user
+      MYSQL_PASSWORD: tsm_pass
+      TZ: Asia/Bangkok
+    ports:
+      - "3307:3306"
+    volumes:
+      - tsm_mysql_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: tsm_pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+
+volumes:
+  tsm_mysql_data:
