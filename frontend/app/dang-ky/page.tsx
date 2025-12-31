@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, Package, ArrowLeft, Check } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { isValidVNMobile, isValidVNPhone } from "@/utils/validatePhoneNumber"
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -23,17 +24,31 @@ export default function RegisterPage() {
     confirmPassword: "",
     agreeTerms: false,
   })
+  const [touched, setTouched] = useState({ phone: false })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     console.log("[v0] Register attempt:", formData)
-    // Handle registration logic here
+    setTouched((prev) => ({ ...prev, phone: true }))
+    if (!isPasswordMatch) return
   }
 
+  // Validate phone number
+  const isPhoneOK = isValidVNPhone(formData.phone);
+  const phoneError = touched.phone && formData.phone.length > 0 && !isValidVNMobile(formData.phone) ? "Số điện thoại không hợp lệ (VN: 03/05/07/08/09, đủ 10 số hoặc +84...)" : ""
+
+  // Requiment password
   const passwordRequirements = [
     { label: "Ít nhất 8 ký tự", met: formData.password.length >= 8 },
     { label: "Có chữ hoa và chữ thường", met: /(?=.*[a-z])(?=.*[A-Z])/.test(formData.password) },
     { label: "Có ít nhất 1 số", met: /\d/.test(formData.password) },
+  ]
+
+  // Requiment confirm password
+  const isPasswordMatch = formData.password.length > 0 && formData.confirmPassword.length > 0 && formData.password === formData.confirmPassword
+
+  const confirmPasswordRequirements = [
+    { label: "Mật khẩu phải giống nhau", met: isPasswordMatch },
   ]
 
   return (
@@ -95,9 +110,14 @@ export default function RegisterPage() {
                     placeholder="0912345678"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onBlur={() => setTouched((prev) => ({ ...prev, phone: true }))}
+                    aria-invalid={!!phoneError}
                     required
-                    className="h-11"
+                    className={`h-11 ${phoneError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                   />
+                  {phoneError && (
+                    <p className="text-xs text-destructive">{phoneError}</p>
+                  )}
                 </div>
               </div>
 
@@ -106,7 +126,7 @@ export default function RegisterPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="ten@example.com"
+                  placeholder="name@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -121,7 +141,7 @@ export default function RegisterPage() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
+                      placeholder="Enter your pass word"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       required
@@ -143,7 +163,7 @@ export default function RegisterPage() {
                     <Input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
-                      placeholder="••••••••"
+                      placeholder="Enter your confirm password"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                       required
@@ -157,8 +177,20 @@ export default function RegisterPage() {
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <ul className="space-y-1 text-sm">
+                    {confirmPasswordRequirements.map((req, idx) => (
+                      <li key={idx}
+                        className={req.met ? "text-green-500" : "text-muted-foreground"}>
+                        {req.met ? "✓" : "x"} {req.label}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
+                {/* {formData.confirmPassword.length > 0 && !isPasswordMatch && (
+                  <p className="text-sm text-destructive">Mật khẩu xác nhận không khớp</p>
+                )} */}
               </div>
+
 
               {formData.password && (
                 <motion.div
@@ -199,7 +231,12 @@ export default function RegisterPage() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full h-11" size="lg">
+              <Button
+                type="submit"
+                className="w-full h-11"
+                size="lg"
+                disabled={!isPasswordMatch || !isPhoneOK}
+                onClick={handleSubmit}>
                 Đăng ký tài khoản
               </Button>
             </form>

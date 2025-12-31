@@ -90,6 +90,28 @@ enum TrangThaiThanhToan {
   REFUNDED
 }
 
+enum TrangThaiDuyetTaiXe {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LoaiGiayToTaiXe {
+  GPLX_MAT_TRUOC
+  GPLX_MAT_SAU
+  CCCD_MAT_TRUOC
+  CCCD_MAT_SAU
+  DANG_KY_XE
+  BAO_HIEM_XE
+  CHAN_DUNG
+}
+
+enum TrangThaiGiayTo {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 /* === MODELS === */
 
 model NguoiDung {
@@ -101,13 +123,16 @@ model NguoiDung {
   anh_dai_dien          String?
   ten_dang_nhap         String
   mat_khau_ma_hoa       String
-  vai_tro              VaiTroNguoiDung
-  so_lan_dang_nhap_sai  Int
-  trang_thai_tai_khoan  TrangThaiTaiKhoan
+
+  vai_tro              VaiTroNguoiDung    @default(KHACH_HANG)
+  so_lan_dang_nhap_sai  Int               @default(0)
+  trang_thai_tai_khoan  TrangThaiTaiKhoan @default(ACTIVE)
+
   thoi_gian_tao         DateTime          @default(now())
   thoi_gian_cap_nhat    DateTime          @updatedAt
 
   tai_xe_profile        TaiXeProfile?
+
   don_hang_khach        DonHang[]         @relation("DonHang_KhachHang")
   don_hang_nguoi_tao    DonHang[]         @relation("DonHang_NguoiTao")
   thanh_toan            ThanhToan[]
@@ -117,19 +142,39 @@ model NguoiDung {
 model TaiXeProfile {
   id                   String            @id @db.Char(26)
   nguoi_dung_id         String            @unique @db.Char(26)
+
   so_giay_phep_lai_xe    String            @unique
   hang_bang_lai          String
   ngay_het_han_gplx      DateTime          @db.Date
   kinh_nghiem_nam        Int
   trang_thai_cong_tac    TrangThaiCongTac
-  mat_khau_ma_hoa        String
-  vai_tro               VaiTroNguoiDung
-  so_lan_dang_nhap_sai   Int
-  trang_thai_tai_khoan   TrangThaiTaiKhoan
+
+  trang_thai_duyet       TrangThaiDuyetTaiXe @default(PENDING)
+  ly_do_tu_choi          String?
+  thoi_gian_gui_duyet    DateTime?           @default(now())
+  thoi_gian_duyet        DateTime?           
+  
   thoi_gian_tao          DateTime          @default(now())
   thoi_gian_cap_nhat     DateTime          @updatedAt
 
   nguoi_dung            NguoiDung         @relation(fields: [nguoi_dung_id], references: [id])
+  giay_to               TaiXeGiayTo[]
+}
+
+model TaiXeGiayTo {
+  id              String           @id @db.Char(26)
+  tai_xe_id        String           @db.Char(26)
+  loai             LoaiGiayToTaiXe
+  file_url         String
+  trang_thai       TrangThaiGiayTo  @default(PENDING)
+  ghi_chu          String?
+
+  thoi_gian_tao    DateTime         @default(now())
+  thoi_gian_cap_nhat DateTime       @updatedAt
+
+  tai_xe           TaiXeProfile     @relation(fields: [tai_xe_id], references: [id])
+
+  @@unique([tai_xe_id, loai]) 
 }
 
 model DonHang {
