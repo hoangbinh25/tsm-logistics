@@ -3,11 +3,22 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { User as UserIcon, LogOut, ChevronDown } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Menu, X, Package } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/context/AuthContext"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const {user, logout} = useAuth()
 
   return (
     <motion.header
@@ -48,16 +59,54 @@ export function Header() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="ghost" asChild>
-                <Link href="/dang-nhap">Đăng nhập</Link>
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button asChild>
-                <Link href="/dang-ky">Đăng ký</Link>
-              </Button>
-            </motion.div>
+            {user ? (
+              // === TRƯỜNG HỢP ĐÃ ĐĂNG NHẬP ===
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3 ">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <UserIcon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex flex-col items-start text-sm">
+                      <span className="font-medium">{user.ho_ten || "Người dùng"}</span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">Hồ sơ cá nhân</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/orders" className="cursor-pointer">Đơn hàng của tôi</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={logout} 
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Đăng xuất
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              // === TRƯỜNG HỢP CHƯA ĐĂNG NHẬP===
+              <>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="ghost" asChild>
+                    <Link href="/login">Đăng nhập</Link>
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button asChild>
+                    <Link href="/register">Đăng ký</Link>
+                  </Button>
+                </motion.div>
+              </>
+            )}
           </div>
 
           <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
@@ -98,10 +147,10 @@ export function Header() {
                   ))}
                   <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
                     <Button variant="ghost" asChild className="w-full">
-                      <Link href="/dang-nhap">Đăng nhập</Link>
+                      <Link href="/login">Đăng nhập</Link>
                     </Button>
                     <Button asChild className="w-full">
-                      <Link href="/dang-ky">Đăng ký</Link>
+                      <Link href="/register">Đăng ký</Link>
                     </Button>
                   </div>
                 </nav>

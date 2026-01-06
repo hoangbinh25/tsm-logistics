@@ -12,8 +12,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Eye, EyeOff, Package, ArrowLeft, Check } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { isValidVNMobile, isValidVNPhone } from "@/utils/validatePhoneNumber"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function RegisterPage() {
+  const { toast } = useToast()
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -26,11 +31,41 @@ export default function RegisterPage() {
   })
   const [touched, setTouched] = useState({ phone: false })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] Register attempt:", formData)
     setTouched((prev) => ({ ...prev, phone: true }))
-    if (!isPasswordMatch) return
+    if (!isPasswordMatch || !isPhoneOK) return
+
+    setIsLoading(true)
+    try {
+      const res = await fetch("http://localhost:3000/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ho_ten: formData.fullName,
+          so_dien_thoai: formData.phone,
+          email: formData.email,
+          mat_khau: formData.password,
+          xac_nhan_mat_khau: formData.confirmPassword
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || "Đăng ký thất bại")
+
+      toast({
+        title: "Đăng ký thành công",
+        description: "Vui lòng đăng nhập để tiếp tục",
+      })
+      router.push("/login")
+    } catch (error: any) {
+      toast({
+        title: "Lỗi đăng ký",
+        description: error.message,
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Validate phone number
@@ -235,16 +270,16 @@ export default function RegisterPage() {
                 type="submit"
                 className="w-full h-11"
                 size="lg"
-                disabled={!isPasswordMatch || !isPhoneOK}
+                disabled={!isPasswordMatch || !isPhoneOK || isLoading}
                 onClick={handleSubmit}>
-                Đăng ký tài khoản
+                {isLoading ? "Đang xử lý..." : "Đăng ký tài khoản"}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 border-t pt-6">
             <div className="text-sm text-center text-muted-foreground">
               Đã có tài khoản?{" "}
-              <Link href="/dang-nhap" className="text-primary font-semibold hover:underline">
+              <Link href="/login" className="text-primary font-semibold hover:underline">
                 Đăng nhập ngay
               </Link>
             </div>

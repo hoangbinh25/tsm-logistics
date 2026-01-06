@@ -3,13 +3,13 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import { AuthProvider } from "@/context/AuthContext"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "VietLogistics - Giải pháp vận chuyển thông minh",
   description: "Nền tảng logistics hiện đại, theo dõi đơn hàng real-time, vận chuyển nhanh chóng và an toàn",
-  generator: "v0.app",
   icons: {
     icon: [
       {
@@ -37,7 +37,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className={`${inter.className} font-sans antialiased`}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

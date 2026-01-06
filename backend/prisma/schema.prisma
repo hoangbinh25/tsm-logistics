@@ -4,10 +4,9 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
-
-/* === ENUMS === */
 
 enum VaiTroNguoiDung {
   QUAN_LY
@@ -112,17 +111,17 @@ enum TrangThaiGiayTo {
   REJECTED
 }
 
-/* === MODELS === */
-
 model NguoiDung {
   id                   String            @id @db.Char(26)
   ho_ten               String
-  so_dien_thoai         String            @unique
-  email                String?           @unique
-  dia_chi              String
+  so_dien_thoai         String?           @unique
+  email                 String?           @unique
+  dia_chi               String?
   anh_dai_dien          String?
-  ten_dang_nhap         String
-  mat_khau_ma_hoa       String
+  mat_khau_ma_hoa       String?
+  access_token_hash     String?
+  refresh_token_hash    String?
+  refresh_token_iat     DateTime?
 
   vai_tro              VaiTroNguoiDung    @default(KHACH_HANG)
   so_lan_dang_nhap_sai  Int               @default(0)

@@ -50,7 +50,7 @@ export function HeroSection() {
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" variant="secondary" className="text-base" asChild>
-                  <Link href="/dang-ky">
+                  <Link href="/register">
                     Bắt đầu ngay
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>

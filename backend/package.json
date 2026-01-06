@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/index.js",
     "prisma:reset": "dotenv -e .env -- prisma migrate reset --force",
@@ -21,15 +21,22 @@
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "google-auth-library": "^10.5.0",
+    "jsonwebtoken": "^9.0.3",
+    "nanoid": "^5.1.6"
   },
   "devDependencies": {
-    "@prisma/client": "^7.2.0",
+    "@prisma/client": "^5.22.0",
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.4",
     "dotenv-cli": "^11.0.0",
-    "prisma": "^7.2.0",
+    "nodemon": "^3.1.11",
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2"
   }
