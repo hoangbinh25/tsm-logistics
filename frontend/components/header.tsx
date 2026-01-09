@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { User as UserIcon, LogOut, ChevronDown } from "lucide-react"
+import { User as UserIcon, LogOut, ChevronDown, PlusCircle } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,9 +64,18 @@ export function Header() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3 ">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                    {user?.anh_dai_dien ? (
+                      <img 
+                        src={user.anh_dai_dien}
+                        alt={user.ho_ten || "Avatar"}
+                        className="h-8 w-8 rounded-full object-cover border border-gray-200"
+                        />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                       <UserIcon className="h-4 w-4 text-primary" />
                     </div>
+                    )}
+                    
                     <div className="flex flex-col items-start text-sm">
                       <span className="font-medium">{user.ho_ten || "Người dùng"}</span>
                     </div>
@@ -78,6 +87,10 @@ export function Header() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="cursor-pointer">Hồ sơ cá nhân</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                      {/* <PlusCircle className="mr-2 h-4 w-4" /> */}
+                      <Link href="/orders/create">Tạo đơn hàng mới</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/orders" className="cursor-pointer">Đơn hàng của tôi</Link>

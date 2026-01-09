@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google"
 import { useAuth } from "@/context/AuthContext"
-
 export default function LoginPage() {
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID"}>
@@ -51,7 +50,13 @@ function LoginForm() {
           title: "Đăng nhập thành công",
           description: "Chào mừng bạn quay trở lại",
         })
-        router.push("/")
+        if(data.user.vai_tro === "QUAN_LY") {
+          router.push("/admin")
+        } else if (data.user.vai_tro === "TAI_XE") {
+          router.push("/driver-dashboard")
+        } else {
+          router.push("/")
+        }
       }
 
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại")

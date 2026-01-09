@@ -10,6 +10,7 @@ interface User {
   anh_dai_dien?: string
   so_dien_thoai?: string | null
   dia_chi?: string | null
+  vai_tro?: string
 }
 
 interface AuthContextType {
@@ -28,15 +29,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
+    const restoreSession = () => {
       try {
-        setUser(JSON.parse(storedUser))
-      } catch (error) {
-        console.error(error)
+        const storedToken = localStorage.getItem("accessToken");
+        const storedUser = localStorage.getItem("user");
+
+        if(storedToken && storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error: any) {
+        console.error("Lỗi khôi phục phiên đăng nhập:", error);
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false)
+    };
+    restoreSession();
   }, [])
 
   const updateProfile = (data: Partial<User>) => {

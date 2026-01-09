@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { ArrowLeft, Upload, User, Car, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, isLoading } = useAuth()
   
   const [formData, setFormData] = useState({
     ho_ten: user?.ho_ten || "",
@@ -21,6 +21,18 @@ export default function ProfilePage() {
     dia_chi: user?.dia_chi || "",
   })
   const [preview, setPreview] = useState<string | undefined>(user?.anh_dai_dien)
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        ho_ten: user.ho_ten || "",
+        email: user.email || "",
+        so_dien_thoai: user.so_dien_thoai || "",
+        dia_chi: user.dia_chi || "",
+      });
+      setPreview(user.anh_dai_dien);
+    }
+  }, [user]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // --- STATE MỚI CHO PHẦN TÀI XẾ ---
@@ -43,6 +55,8 @@ export default function ProfilePage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setAvatarFile(file);
+
       const reader = new FileReader()
       reader.onloadend = () => {
         setPreview(reader.result as string)
@@ -51,10 +65,38 @@ export default function ProfilePage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    updateProfile({ ...formData, anh_dai_dien: preview })
-    alert("Cập nhật hồ sơ cá nhân thành công!")
+    const token = localStorage.getItem("accessToken");
+    if(!token) return alert("Bạn chưa đăng nhập")
+      try {
+        const formDataPayload = new FormData();
+        formDataPayload.append("ho_ten", formData.ho_ten);
+        formDataPayload.append("email", formData.email);
+        formDataPayload.append("so_dien_thoai", formData.so_dien_thoai);
+        formDataPayload.append("dia_chi", formData.dia_chi);
+
+        if(avatarFile) {
+          formDataPayload.append("avatar", avatarFile);
+        }
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile`, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          },
+          body: formDataPayload,
+        });
+
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.message);
+
+        updateProfile(data.user);
+        alert("Cập nhật thành công")
+
+      } catch (error:any) {
+          alert(error.message)
+      }
   }
 
   // --- HANDLE MỚI CHO TÀI XẾ ---
@@ -76,6 +118,10 @@ export default function ProfilePage() {
     console.log("File giấy tờ:", licenseFiles)
     alert("Đã gửi yêu cầu đăng ký tài xế! (Chờ tích hợp API)")
     setIsDriverModalOpen(false)
+  }
+
+  if (isLoading) {
+    return <div className="flex justify-center p-10">Đang tải thông tin...</div>; 
   }
 
   if (!user) {
