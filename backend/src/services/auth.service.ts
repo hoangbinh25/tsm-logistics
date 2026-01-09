@@ -1,15 +1,11 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
-import { customAlphabet } from "nanoid";
-import { OAuth2Client } from "google-auth-library";
 import { DriverStatus, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from "../types/auth";
 import { formatVNTime } from "../utils/date.util";
+import { genId26 } from "../types/genId";
 
-const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 const MAX_LOGIN_ATTEMPTS = 5;
-
-const genId26 = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", 26);
 
 export async function loginService(payload: LoginRequest): Promise<LoginResponse> {
     const email = payload.email.trim().toLowerCase();

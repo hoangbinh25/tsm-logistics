@@ -1,7 +1,5 @@
-import { customAlphabet } from 'nanoid';
 import prisma from '../config/prisma';
-
-const genId26 = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", 26);
+import { genId26 } from '../types/genId';
 
 export const getAllWarehouses = async () => {
     // Sắp xếp theo ngày tạo mới nhất
