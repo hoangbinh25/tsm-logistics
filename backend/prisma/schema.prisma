@@ -331,3 +331,13 @@ model PhanCongDonHang {
   @@index([tai_xe_id])
   @@index([phuong_tien_id])
 }
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   // Mã OTP (ví dụ: 123456)
+  expiresAt DateTime // Thời gian hết hạn
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}

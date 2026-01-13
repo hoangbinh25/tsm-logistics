@@ -181,7 +181,7 @@ export default function OrderManagementPage() {
                         <div className="font-medium">{order.khach_hang?.ho_ten}</div>
                         <div className="text-xs text-muted-foreground">{order.khach_hang?.so_dien_thoai}</div>
                     </td>
-                    <td className="px-6 py-4 max-w-[200px]">
+                    <td className="px-6 py-4 max-w-50">
                         <div className="text-xs font-medium">{order.kho_gui?.ten_kho || "Kho trung tâm"}</div>
                         <div className="text-xs text-muted-foreground truncate" title={order.dia_chi_nhan}>→ {order.dia_chi_nhan}</div>
                     </td>
@@ -283,8 +283,6 @@ export default function OrderManagementPage() {
             </DialogFooter>
          </DialogContent>
       </Dialog>
-      
-      {/* ... (Giữ nguyên Modal Detail và Cancel như cũ) ... */}
     </main>
   )
 }

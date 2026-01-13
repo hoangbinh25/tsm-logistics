@@ -9,7 +9,7 @@ import { useEffect, useState } from "react"
 // Import MapComponent dạng Dynamic để tránh lỗi SSR "window is not defined"
 const MapWithNoSSR = dynamic(() => import("@/components/admin/map-component"), {
   ssr: false,
-  loading: () => <div className="h-[600px] w-full bg-muted animate-pulse flex items-center justify-center">Đang tải bản đồ...</div>
+  loading: () => <div className="h-150 w-full bg-muted animate-pulse flex items-center justify-center">Đang tải bản đồ...</div>
 })
 
 // Dữ liệu giả lập các tuyến đường
@@ -78,7 +78,7 @@ export default function RoutesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Giám sát Lộ trình</h1>
           <p className="text-sm text-muted-foreground">Theo dõi trực tuyến {vehicles.length} phương tiện đang di chuyển</p>
         </div>
-        <div className="w-[200px]">
+        <div className="w-50">
            <Select value={filter} onValueChange={setFilter}>
                 <SelectTrigger><SelectValue placeholder="Lọc khu vực" /></SelectTrigger>
                 <SelectContent>
@@ -128,7 +128,7 @@ export default function RoutesPage() {
         </Card>
 
         {/* Cột phải: Bản đồ */}
-        <div className="lg:col-span-2 h-full min-h-[500px] rounded-xl overflow-hidden border shadow-sm relative z-0">
+        <div className="lg:col-span-2 h-full min-h-125 rounded-xl overflow-hidden border shadow-sm relative z-0">
             <MapWithNoSSR vehicles={vehicles} />
         </div>
       </div>

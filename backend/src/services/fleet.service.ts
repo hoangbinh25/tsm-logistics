@@ -1,5 +1,5 @@
 import prisma from '../config/prisma';
-import { genId26 } from '../types/genId';
+import { genId26 } from '../types/genID';
 
 export const getAllVehicles = async () => {
     return await prisma.phuongTien.findMany({

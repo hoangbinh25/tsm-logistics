@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
 import { DriverStatus, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from "../types/auth";
 import { formatVNTime } from "../utils/date.util";
-import { genId26 } from "../types/genId";
+import { genId26 } from "../types/genID";
+import { sendOTPEmail } from '../utils/mailer';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 
@@ -79,7 +80,7 @@ export async function loginService(payload: LoginRequest): Promise<LoginResponse
         { sub: user.id, role: user.vai_tro },
         process.env.JWT_ACCESS_SECRET as string,
         {
-            expiresIn: "3d",
+            expiresIn: "15m",
         });
 
     const refreshToken = jwt.sign(
@@ -158,7 +159,7 @@ export async function registerService(payload: RegisterRequest): Promise<Registe
         { sub: newUser.id, role: "KHACH_HANG" },
         process.env.JWT_ACCESS_SECRET as string,
         {
-            expiresIn: "3d",
+            expiresIn: "15",
         }
     )
 
@@ -238,7 +239,7 @@ export async function loginGoogleService(token: string): Promise<LoginResponse> 
     const accessToken = jwt.sign(
         { sub: user.id, role: user.vai_tro },
         process.env.JWT_ACCESS_SECRET as string,
-        { expiresIn: "3d" }
+        { expiresIn: "15m" }
     );
 
     const refreshToken = jwt.sign(
@@ -267,3 +268,63 @@ export async function loginGoogleService(token: string): Promise<LoginResponse> 
         },
     };
 }
+
+// Hàm tạo OTP ngẫu nhiên 6 số
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+export const requestPasswordReset = async (email: string) => {
+  // 1. Check user tồn tại
+  const user = await prisma.nguoiDung.findUnique({ where: { email } });
+  if (!user) throw new Error("Email không tồn tại trong hệ thống");
+
+  // 2. Xóa các OTP cũ của email này
+  await prisma.passwordResetToken.deleteMany({ where: { email } });
+
+  // 3. Tạo OTP mới
+  const otp = generateOTP();
+  const expiresAt = new Date(Date.now() + 1 * 60 * 1000); // Hết hạn sau 1 phút
+
+  // 4. Lưu vào DB
+  await prisma.passwordResetToken.create({
+    data: {
+      email,
+      token: otp,
+      expiresAt
+    }
+  });
+
+  // 5. Gửi mail (Không await để trả về response nhanh hơn nếu muốn)
+  await sendOTPEmail(email, otp);
+
+  return { message: "Mã OTP đã được gửi đến email của bạn" };
+};
+
+export const verifyOTP = async (email: string, otp: string) => {
+  const record = await prisma.passwordResetToken.findFirst({
+    where: { email, token: otp }
+  });
+
+  if (!record) throw new Error("Mã OTP không chính xác");
+  if (new Date() > record.expiresAt) throw new Error("Mã OTP đã hết hạn");
+
+  return { valid: true };
+};
+
+export const resetPassword = async (email: string, otp: string, newPass: string) => {
+  // 1. Verify lại lần cuối cho chắc
+  await verifyOTP(email, otp);
+
+  // 2. Hash mật khẩu mới
+  const hashedPassword = await bcrypt.hash(newPass, 10);
+
+  // 3. Cập nhật User
+  await prisma.nguoiDung.update({
+    where: { email },
+    data: { mat_khau_ma_hoa: hashedPassword }
+  });
+
+  // 4. Xóa OTP đã dùng
+  await prisma.passwordResetToken.deleteMany({ where: { email } });
+
+  return { message: "Đổi mật khẩu thành công" };
+};

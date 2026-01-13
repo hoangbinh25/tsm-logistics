@@ -7,7 +7,7 @@ import { motion } from "framer-motion"
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground">
+    <section className="relative overflow-hidden bg-linear-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground">
       <div className="absolute inset-0 bg-[url('/abstract-network-pattern-lines.jpg')] opacity-10 bg-cover bg-center" />
 
       <div className="container relative mx-auto px-4 py-24 md:py-32">
@@ -73,9 +73,9 @@ export function HeroSection() {
             initial={{ opacity: 0, scale: 0.9, x: 50 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="relative lg:h-[500px]"
+            className="relative lg:h-125"
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-secondary/20 to-transparent rounded-2xl" />
+            <div className="absolute inset-0 bg-linear-to-tr from-secondary/20 to-transparent rounded-2xl" />
             <img
               src="/modern-truck-on-highway-with-technology-overlay.jpg"
               alt="Logistics platform illustration"
@@ -85,7 +85,7 @@ export function HeroSection() {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-background to-transparent" />
     </section>
   )
 }

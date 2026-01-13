@@ -1,7 +1,8 @@
 "use client"
 
 import { 
-  LayoutDashboard, Truck, Map, Package, BarChart3, Warehouse, Settings 
+  LayoutDashboard, Truck, Map, Package, BarChart3, Warehouse, Settings, 
+  Container
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation" // Dùng hook này để biết đang ở trang nào
@@ -16,6 +17,7 @@ export function ShippingNav() {
     { href: "/admin/orders", label: "Đơn hàng", icon: Package },
     { href: "/admin/routes", label: "Lộ trình", icon: Map },
     { href: "/admin/revenue", label: "Doanh thu", icon: BarChart3 },
+    { href: "/admin/services", label: "Dịch vụ vận chuyển", icon: Container }
   ]
 
   return (

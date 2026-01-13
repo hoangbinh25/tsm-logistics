@@ -94,15 +94,15 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="h-5 w-5 shrink-0 mt-0.5" />
-                <span>123 Đường Nguyễn Huệ, Q.1, TP.HCM</span>
+                <span>Từ Liêm, Thành Phố Hà Nội</span>
               </li>
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-5 w-5 shrink-0" />
-                <span>1900 1234</span>
+                <span>0896315601</span>
               </li>
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Mail className="h-5 w-5 shrink-0" />
-                <span>info@vietlogistics.vn</span>
+                <span>hpbinh200x@gmail.com</span>
               </li>
             </ul>
           </motion.div>

@@ -1,5 +1,103 @@
 import prisma from '../config/prisma';
-import { genId26 } from '../types/genId';
+import { genId26 } from '../types/genID';
+interface CreateOrderParams {
+    userId: string;
+    senderAddress: string;
+    receiverInfo: { name: string; phone: string; address: string };
+    warehouseId: string;
+    serviceId: string;
+    paymentMethod: string; // "COD", "CHUYEN_KHUOAN"
+    note: string;
+    items: any[];
+}
+
+export const getMyOrdersService = async (userId: string) => {
+    return await prisma.donHang.findMany({
+        where: {
+            khach_hang_id: userId 
+        },
+        orderBy: {
+            thoi_gian_dat: 'desc'
+        },
+        // include: {
+        //     ChiTietDonHang: true 
+        // }
+    });
+};
+
+export const createOrderService = async (params: CreateOrderParams) => {
+    const { userId, senderAddress, receiverInfo, warehouseId, serviceId, paymentMethod, note, items } = params;
+
+    // 1. Tính toán tổng quan
+    let totalWeight = 0;
+    let totalPrice = 0;
+
+    // Duyệt qua items để tính tổng
+    items.forEach(item => {
+        totalWeight += Number(item.khoi_luong || 0);
+        totalPrice += Number(item.don_gia || 0) * Number(item.so_luong || 1);
+    });
+
+    // 2. Tính phí vận chuyển
+    // Ví dụ: 30k cơ bản + 5k cho mỗi kg
+    const shippingFee = 30000 + (totalWeight * 5000);
+    const totalPayment = shippingFee; // Nếu người nhận trả ship. Nếu COD tiền hàng thì cộng thêm totalPrice.
+
+    // 3. Tạo mã vận đơn tự động (VD: VNP + Timestamp cắt gọn)
+    const orderCode = `DH${Date.now().toString().slice(-8)}`;
+
+    // 4. Thực hiện Transaction lưu DB
+    const newOrder = await prisma.$transaction(async (tx) => {
+        // A. Tạo đơn hàng
+        const orderId = genId26();
+        
+        const order = await tx.donHang.create({
+            data: {
+                id: orderId,
+                ma_don_hang: orderCode,
+                khach_hang_id: userId,
+                nguoi_tao_id: userId, 
+                kho_gui_id: warehouseId,
+                // kho_nhan_id: null, // Chưa biết kho nhận lúc tạo
+                dia_chi_giao: senderAddress,
+                dia_chi_nhan: `${receiverInfo.name} - ${receiverInfo.phone} - ${receiverInfo.address}`,
+                
+                tong_khoi_luong: totalWeight,
+                tong_tien_hang: totalPrice,
+                phi_van_chuyen: shippingFee,
+                giam_gia: 0,
+                tong_thanh_toan: paymentMethod === 'COD' ? (totalPrice + shippingFee) : shippingFee,
+                
+                trang_thai_don_hang: 'TAO_MOI',
+                hinh_thuc_thanh_toan: paymentMethod === 'COD' ? 'COD' : 'ONLINE',
+                ghi_chu: note,
+                thoi_gian_dat: new Date(),
+            }
+        });
+
+        // B. Tạo chi tiết đơn hàng (Mapping items từ FE sang DB Schema)
+        if (items.length > 0) {
+            await tx.chiTietDonHang.createMany({
+                data: items.map(item => ({
+                    id: genId26(),
+                    don_hang_id: orderId,
+                    ma_dich_vu: serviceId,
+                    ten_hang_hoa: item.ten_hang,
+                    mo_ta: item.mo_ta || "",
+                    so_luong: Number(item.so_luong),
+                    don_vi_tinh: item.don_vi || "Cái",
+                    khoi_luong: Number(item.khoi_luong),
+                    don_gia: Number(item.don_gia),
+                    thanh_tien: Number(item.don_gia) * Number(item.so_luong)
+                }))
+            });
+        }
+
+        return order;
+    });
+
+    return newOrder;
+};
 
 export const autoAssignDriverService = async (orderId: string) => {
     // 1. Lấy thông tin đơn hàng để biết: Kho gửi ở đâu? Nặng bao nhiêu?

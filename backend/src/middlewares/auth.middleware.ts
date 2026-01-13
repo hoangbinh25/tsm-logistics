@@ -6,6 +6,7 @@ export interface AuthRequest extends Request {
     user?: {
         sub: string;  // User ID
         role: string; // Vai trò (KHACH_HANG, TAI_XE,...)
+        email: string;
     };
 }
 
@@ -39,6 +40,8 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
         next();
 
     } catch (error: any) {
+        console.log("❌ Lỗi Verify Token:", error.name, error.message); 
+        console.log("🔑 Secret đang dùng:", process.env.JWT_ACCESS_SECRET);
         console.error("JWT Verification Error:", error.message);
         
         if (error.name === 'TokenExpiredError') {

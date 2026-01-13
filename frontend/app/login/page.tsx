@@ -112,7 +112,7 @@ function LoginForm() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 via-background to-secondary/5 p-4">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -164,7 +164,7 @@ function LoginForm() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Mật khẩu</Label>
-                  <Link href="#" className="text-sm text-primary hover:underline">
+                  <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
                     Quên mật khẩu?
                   </Link>
                 </div>
