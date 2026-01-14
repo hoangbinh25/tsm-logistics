@@ -16,6 +16,25 @@ const uploadToCloudinary = (buffer: Buffer): Promise<string> => {
     });
 };
 
+export const getUsersService = async (role?: string) => {
+    const whereCondition = role ? { vai_tro: role as any } : {};
+
+    const users = await prisma.nguoiDung.findMany({
+        where: whereCondition,
+        select: {
+            id: true,
+            ho_ten: true,
+            email: true,
+            so_dien_thoai: true,
+            vai_tro: true,
+            anh_dai_dien: true
+        },
+        orderBy: { thoi_gian_tao: 'desc' }
+    });
+
+    return users;
+};
+
 export const updateProfileService = async (userId: string, data: any, file?: Express.Multer.File) => {
     let avatarUrl = undefined;
 
@@ -38,3 +57,4 @@ export const updateProfileService = async (userId: string, data: any, file?: Exp
 
     return updatedUser;
 };
+

@@ -17,6 +17,7 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { Package, Plus, Loader2, ArrowRight } from "lucide-react"
+import { fetchWithAuth } from "@/utils/api";
 
 // 1. Các hàm Helper định dạng (Tiền, Ngày, Trạng thái)
 const formatMoney = (amount: number) => 
@@ -54,24 +55,13 @@ export default function MyOrdersPage() {
   // 2. Fetch API lấy danh sách
   useEffect(() => {
     const fetchOrders = async () => {
-        const token = localStorage.getItem("accessToken")
-        if (!token) {
-            router.push("/login")
-            return
-        }
-
         try {
             // Gọi API getMyOrders mà chúng ta đã viết ở Backend
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                },
-                cache: 'no-store'
-            })
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders`);
             
             if (res.ok) {
                 const data = await res.json()
-                setOrders(data.data) // Giả sử Backend trả về { message: "...", data: [] }
+                setOrders(data.data)
             } else {
                 if(res.status === 401) router.push("/login")
             }

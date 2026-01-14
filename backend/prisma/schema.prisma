@@ -139,8 +139,8 @@ model NguoiDung {
 }
 
 model TaiXeProfile {
-  id                   String            @id @db.Char(26)
-  nguoi_dung_id         String            @unique @db.Char(26)
+  id                     String            @id @db.Char(26)
+  nguoi_dung_id          String            @unique @db.Char(26)
 
   so_giay_phep_lai_xe    String            @unique
   hang_bang_lai          String
@@ -156,12 +156,13 @@ model TaiXeProfile {
   thoi_gian_tao          DateTime          @default(now())
   thoi_gian_cap_nhat     DateTime          @updatedAt
 
-  nguoi_dung            NguoiDung         @relation(fields: [nguoi_dung_id], references: [id])
-  giay_to               TaiXeGiayTo[]
+  nguoi_dung             NguoiDung         @relation(fields: [nguoi_dung_id], references: [id])
+  giay_to                TaiXeGiayTo[]
+  don_hang_nhan   DonHang[]
 }
 
 model TaiXeGiayTo {
-  id              String           @id @db.Char(26)
+  id               String           @id @db.Char(26)
   tai_xe_id        String           @db.Char(26)
   loai             LoaiGiayToTaiXe
   file_url         String
@@ -177,7 +178,7 @@ model TaiXeGiayTo {
 }
 
 model DonHang {
-  id                    String            @id @db.Char(26)
+  id                     String            @id @db.Char(26)
   ma_don_hang            String            @unique
   khach_hang_id          String            @db.Char(26)
   nguoi_tao_id           String            @db.Char(26)
@@ -207,6 +208,9 @@ model DonHang {
   chi_tiet               ChiTietDonHang[]
   thanh_toan             ThanhToan[]
   phan_cong              PhanCongDonHang[]
+
+  tai_xe_id       String?  // Cho phép null (vì đơn mới chưa có tài xế)
+  tai_xe          TaiXeProfile? @relation(fields: [tai_xe_id], references: [id])
 
   @@index([khach_hang_id])
   @@index([nguoi_tao_id])

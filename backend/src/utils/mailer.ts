@@ -21,7 +21,7 @@ export const sendOrderConfirmationEmail = async (to: string, orderDetails: any) 
   const formatMoney = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 
   await transporter.sendMail({
-    from: '"VietLogistics" <no-reply@vietlogistics.com>',
+    from: `"VietLogistics" <${process.env.MAIL_USER}>`,
     to, 
     subject: `[VietLogistics] Xác nhận đơn hàng #${orderDetails.ma_don_hang}`,
     html: `

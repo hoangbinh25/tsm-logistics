@@ -19,9 +19,31 @@ export const getMyOrdersService = async (userId: string) => {
         orderBy: {
             thoi_gian_dat: 'desc'
         },
-        // include: {
-        //     ChiTietDonHang: true 
-        // }
+        include: {
+            chi_tiet: true        // chi tiết đơn hàng
+        }
+    });
+};
+
+export const getAllOrdersService = async () => {
+    return await prisma.donHang.findMany({
+        include: {
+            khach_hang: true, 
+            kho_gui: true,    
+            
+            tai_xe: {
+                include: {
+                    nguoi_dung: { 
+                        select: { 
+                            ho_ten: true, 
+                            so_dien_thoai: true, 
+                            anh_dai_dien: true 
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: { thoi_gian_tao: 'desc' } // Sắp xếp mới nhất lên đầu
     });
 };
 

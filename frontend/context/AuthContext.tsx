@@ -1,6 +1,7 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
 
 // 1. Định nghĩa lại các Interface (Type)
 interface User {
@@ -19,6 +20,7 @@ interface AuthContextType {
   logout: () => void
   isLoading: boolean
   updateProfile: (data: Partial<User>) => void
+  http: (url: string, options?: RequestInit) => Promise<Response>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -27,6 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     const restoreSession = () => {
@@ -66,14 +69,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("refreshToken", refreshToken)
   }
 
-  const logout = () => {
+  const logout = useCallback (() => {
     setUser(null)
     localStorage.clear()
     window.location.href = "/login"
+  }, [router])
+  const http = async (url: string, options: RequestInit = {}) => {
+    // 1. Tự động lấy token mới nhất
+    const token = localStorage.getItem("accessToken");
+
+    // 2. Gộp Header
+    const headers = {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    } as HeadersInit;
+
+    try {
+      // 3. Gọi fetch gốc
+      const response = await fetch(url, { ...options, headers });
+
+      // 4. Bắt lỗi 401 ngay tại đây
+      if (response.status === 401) {
+        logout(); // Gọi ngay hàm logout của Context
+        return Promise.reject("Phiên đăng nhập hết hạn");
+      }
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading , updateProfile}}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading , updateProfile, http}}>
       {children}
     </AuthContext.Provider>
   )

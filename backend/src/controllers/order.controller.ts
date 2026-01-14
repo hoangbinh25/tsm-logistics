@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import * as orderService from '../services/order.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { sendOrderConfirmationEmail } from '../utils/mailer';
-import prisma from '../config/prisma';
 
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
     try {
@@ -19,6 +18,23 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: "Lỗi máy chủ nội bộ" });
     }
 }
+
+export const getAllOrders = async (req: AuthRequest, res: Response) => {
+    try {
+        // 1. Gọi Service để lấy dữ liệu
+        const orders = await orderService.getAllOrdersService();
+
+        // 2. Trả về kết quả
+        res.status(200).json({ 
+            message: "Lấy danh sách đơn hàng thành công",
+            data: orders 
+        });
+
+    } catch (error: any) {
+        console.error("Get All Orders Error:", error);
+        res.status(500).json({ message: "Lỗi hệ thống: " + error.message });
+    }
+};
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
     try {

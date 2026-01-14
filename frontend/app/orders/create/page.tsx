@@ -20,7 +20,7 @@ interface Warehouse { id: string; ten_kho: string; }
 interface Service { id: string; ten_dich_vu: string; gia_co_ban: number; don_vi_tinh: string; }
 
 export default function CreateOrderPage() {
-  const { user } = useAuth()
+  const { user, http } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   
@@ -118,12 +118,8 @@ export default function CreateOrderPage() {
     }
 
     try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
+        const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
             body: JSON.stringify(payload)
         })
 

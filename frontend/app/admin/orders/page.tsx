@@ -161,63 +161,99 @@ export default function OrderManagementPage() {
         </div>
 
         <TabsContent value="ALL" className="mt-0">
-          <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted/50 text-xs uppercase border-b">
-                <tr>
-                  <th className="px-6 py-4">Mã Đơn</th>
-                  <th className="px-6 py-4">Khách hàng</th>
-                  <th className="px-6 py-4">Lộ trình</th>
-                  <th className="px-6 py-4">Tổng tiền</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-muted/30">
-                    <td className="px-6 py-4 font-bold text-primary">{order.ma_don_hang}</td>
-                    <td className="px-6 py-4">
-                        <div className="font-medium">{order.khach_hang?.ho_ten}</div>
-                        <div className="text-xs text-muted-foreground">{order.khach_hang?.so_dien_thoai}</div>
-                    </td>
-                    <td className="px-6 py-4 max-w-50">
-                        <div className="text-xs font-medium">{order.kho_gui?.ten_kho || "Kho trung tâm"}</div>
-                        <div className="text-xs text-muted-foreground truncate" title={order.dia_chi_nhan}>→ {order.dia_chi_nhan}</div>
-                    </td>
-                    <td className="px-6 py-4 font-medium">{formatCurrency(order.tong_thanh_toan)}</td>
-                    <td className="px-6 py-4">{getStatusBadge(order.trang_thai_don_hang)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsDetailOpen(true) }}>
-                            <Eye className="w-4 h-4 mr-2" /> Xem chi tiết
-                          </DropdownMenuItem>
-                          
-                          {/* Chỉ hiện nút Phân công khi đơn chưa chạy */}
-                          {['TAO_MOI', 'CHO_XAC_NHAN'].includes(order.trang_thai_don_hang) && (
-                              <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsAssignOpen(true) }}>
-                                <Truck className="w-4 h-4 mr-2 text-blue-600" /> Phân công xe
-                              </DropdownMenuItem>
-                          )}
+  <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
+    <table className="w-full text-sm text-left">
+      <thead className="bg-muted/50 text-xs uppercase border-b">
+        <tr>
+          <th className="px-6 py-4">Mã Đơn</th>
+          <th className="px-6 py-4">Khách hàng</th>
+          <th className="px-6 py-4">Lộ trình</th>
+          {/* 1. THÊM CỘT TÀI XẾ */}
+          <th className="px-6 py-4">Tài xế</th> 
+          <th className="px-6 py-4">Tổng tiền</th>
+          <th className="px-6 py-4">Trạng thái</th>
+          <th className="px-6 py-4 text-right">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y">
+        {filteredOrders.map((order) => (
+          <tr key={order.id} className="hover:bg-muted/30">
+            {/* Mã đơn */}
+            <td className="px-6 py-4 font-bold text-primary">{order.ma_don_hang}</td>
+            
+            {/* Khách hàng */}
+            <td className="px-6 py-4">
+                <div className="font-medium">{order.khach_hang?.ho_ten}</div>
+                <div className="text-xs text-muted-foreground">{order.khach_hang?.so_dien_thoai}</div>
+            </td>
+            
+            {/* Lộ trình */}
+            <td className="px-6 py-4 max-w-50">
+                <div className="text-xs font-medium">{order.kho_gui?.ten_kho || "Kho trung tâm"}</div>
+                <div className="text-xs text-muted-foreground truncate" title={order.dia_chi_nhan}>→ {order.dia_chi_nhan}</div>
+            </td>
 
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => { setSelectedOrder(order); setIsCancelOpen(true) }}>
-                             <XCircle className="w-4 h-4 mr-2" /> Hủy đơn hàng
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
+            {/* 2. HIỂN THỊ TÀI XẾ */}
+            <td className="px-6 py-4">
+                {order.tai_xe ? (
+                    <div className="flex items-center gap-2">
+                        {/* Avatar nhỏ (nếu có) */}
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border">
+                             {order.tai_xe.nguoi_dung?.anh_dai_dien ? (
+                                <img src={order.tai_xe.nguoi_dung.anh_dai_dien} className="w-full h-full object-cover"/>
+                             ) : (
+                                <Truck className="w-4 h-4 text-slate-500"/>
+                             )}
+                        </div>
+                        <div>
+                            <div className="font-medium text-blue-700">{order.tai_xe.nguoi_dung?.ho_ten}</div>
+                            <div className="text-xs text-muted-foreground">{order.tai_xe.nguoi_dung?.so_dien_thoai}</div>
+                        </div>
+                    </div>
+                ) : (
+                    <span className="text-xs text-muted-foreground italic px-2 py-1 bg-slate-100 rounded-md">
+                        Chưa phân công
+                    </span>
+                )}
+            </td>
+
+            {/* Tổng tiền */}
+            <td className="px-6 py-4 font-medium">{formatCurrency(order.tong_thanh_toan)}</td>
+            
+            {/* Trạng thái */}
+            <td className="px-6 py-4">{getStatusBadge(order.trang_thai_don_hang)}</td>
+            
+            {/* Thao tác */}
+            <td className="px-6 py-4 text-right">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {/* ... Menu items cũ ... */}
+                  <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsDetailOpen(true) }}>
+                    <Eye className="w-4 h-4 mr-2" /> Xem chi tiết
+                  </DropdownMenuItem>
+                  
+                  {['TAO_MOI', 'CHO_XAC_NHAN'].includes(order.trang_thai_don_hang) && (
+                      <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsAssignOpen(true) }}>
+                        <Truck className="w-4 h-4 mr-2 text-blue-600" /> Phân công xe
+                      </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600" onClick={() => { setSelectedOrder(order); setIsCancelOpen(true) }}>
+                      <XCircle className="w-4 h-4 mr-2" /> Hủy đơn hàng
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</TabsContent>
       </Tabs>
 
       {/* --- MODAL PHÂN CÔNG (Có Auto) --- */}

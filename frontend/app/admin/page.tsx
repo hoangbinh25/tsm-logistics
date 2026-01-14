@@ -49,7 +49,7 @@ const FleetView = () => (
 )
 
 const MapPlaceholder = () => (
-  <div className="h-[600px] bg-muted/30 rounded-xl border border-dashed border-border flex items-center justify-center flex-col gap-4">
+  <div className="h-150 bg-muted/30 rounded-xl border border-dashed border-border flex items-center justify-center flex-col gap-4">
     <MapPin className="w-12 h-12 text-primary/40 animate-bounce" />
     <div className="text-center">
       <p className="font-medium">Đang tải bản đồ vệ tinh...</p>
@@ -59,112 +59,11 @@ const MapPlaceholder = () => (
 )
 
 export default function ShippingDashboard() {
-  const {user, logout, isLoading} = useAuth()
   const [activeTab, setActiveTab] = useState("dashboard")
-  const router = useRouter()
-
-  useEffect(() => {
-    if(!isLoading) {
-      console.log("Current User", user);
-      console.log("Vai tro: ", user?.vai_tro);
-      if(!user) {
-        router.push("/login")
-      } else if(user.vai_tro !== "QUAN_LY") {
-        router.push("/")
-      }
-    }
-  }, [user, isLoading, router])
-
-  if (isLoading || !user || user.vai_tro !== "QUAN_LY") {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground">Đang kiểm tra quyền truy cập...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-4 flex-1 max-w-xl">
-            <div className="relative w-full">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Tìm mã vận đơn, tài xế..."
-                className="pl-9 bg-muted/50 border-none h-9 focus-visible:ring-1 focus-visible:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4">
-            {user ? (
-              // === TRƯỜNG HỢP ĐÃ ĐĂNG NHẬP ===
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3 ">
-                    {user?.anh_dai_dien ? (
-                      <img 
-                        src={user.anh_dai_dien}
-                        alt={user.ho_ten || "Avatar"}
-                        className="h-8 w-8 rounded-full object-cover border border-gray-200"
-                        />
-                    ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                      <UserIcon className="h-4 w-4 text-primary" />
-                    </div>
-                    )}
-                    
-                    <div className="flex flex-col items-start text-sm">
-                      <span className="font-medium">{user.ho_ten || "Người dùng"}</span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="cursor-pointer">Hồ sơ cá nhân</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                      {/* <PlusCircle className="mr-2 h-4 w-4" /> */}
-                      <Link href="/orders/create">Tạo đơn hàng mới</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/orders" className="cursor-pointer">Đơn hàng của tôi</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={logout} 
-                    className="cursor-pointer text-red-600 focus:text-red-600"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Đăng xuất
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              // === TRƯỜNG HỢP CHƯA ĐĂNG NHẬP===
-              <>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button variant="ghost" asChild>
-                    <Link href="/login">Đăng nhập</Link>
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button asChild>
-                    <Link href="/register">Đăng ký</Link>
-                  </Button>
-                </motion.div>
-              </>
-            )}
-          </div>
-        </header>
 
         {/* Content */}
         <Suspense fallback={null}>

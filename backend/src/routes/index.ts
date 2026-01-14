@@ -8,12 +8,15 @@ import assignOrderRoute from "./order.route";
 import revenueRoute from "./revenue.route";
 import transportServiceRoute from "./transport-service.route"
 import orderRoute from "./order.route"
+import driverRoute from './driver.route';
 
 const router = Router();
 
+// user
 router.use("/auth", authRoute)
 router.use("/user", userRoute)
 router.use("/orders", orderRoute)
+router.use('/drivers', driverRoute);
 
 // admin
 router.use("/fleet", fleetRoute)
