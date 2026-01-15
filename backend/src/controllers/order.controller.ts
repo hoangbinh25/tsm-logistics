@@ -3,39 +3,34 @@ import * as orderService from '../services/order.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { sendOrderConfirmationEmail } from '../utils/mailer';
 
-export const getMyOrders = async (req: AuthRequest, res: Response) => {
+export const getOrders = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.sub;
-        if(!userId) return res.status(401).json({ message: "Unauthorized "});
+        if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
 
-        const orders = await orderService.getMyOrdersService(userId);
-        res.status(200).json({
-            message: "Lấy danh sách thành công",
-            data: orders
+        // Lấy role từ token
+        const roles = req.user?.role || [];
+        
+        // Kiểm tra quyền Admin
+        const isAdmin = roles === 'QUAN_LY';
+
+        // GỌI SERVICE DUY NHẤT
+        // Truyền cờ isAdmin để Service tự biết đường lọc
+        const orders = await orderService.getOrdersService({ 
+            userId, 
+            isAdmin 
         });
-    } catch (error:any) {
-        console.error("Get My Orders Error:", error);
-        res.status(500).json({ message: "Lỗi máy chủ nội bộ" });
-    }
-}
 
-export const getAllOrders = async (req: AuthRequest, res: Response) => {
-    try {
-        // 1. Gọi Service để lấy dữ liệu
-        const orders = await orderService.getAllOrdersService();
-
-        // 2. Trả về kết quả
         res.status(200).json({ 
-            message: "Lấy danh sách đơn hàng thành công",
+            message: "Lấy danh sách thành công", 
             data: orders 
         });
 
     } catch (error: any) {
-        console.error("Get All Orders Error:", error);
+        console.error("Get Orders Error:", error);
         res.status(500).json({ message: "Lỗi hệ thống: " + error.message });
     }
 };
-
 export const createOrder = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.sub;
@@ -91,5 +86,54 @@ export const autoAssign = async (req: Request, res: Response) => {
         res.json(result);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
+    }
+};
+
+// Lấy danh sách task của tài xế
+export const getMyTasks = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.sub; 
+
+        if (!userId) {
+            return res.status(401).json({ message: "Không xác định được danh tính" });
+        }
+
+        const tasks = await orderService.getDriverTasksService(userId);
+
+        res.status(200).json({ 
+            message: "Lấy danh sách công việc thành công",
+            data: tasks 
+        });
+
+    } catch (error: any) {
+        console.error("GetMyTasks Error:", error);
+        if (error.message === "NOT_DRIVER") {
+            return res.status(403).json({ message: "Tài khoản này chưa đăng ký làm tài xế" });
+        }
+        res.status(500).json({ message: "Lỗi hệ thống" });
+    }
+};
+
+// API Public: Tra cứu đơn hàng theo Mã vận đơn
+export const getOrderByCode = async (req: Request, res: Response) => {
+    try {
+        const { code } = req.params; // Lấy mã từ URL
+
+        // Gọi Service
+        const order = await orderService.getOrderByCodeService(code);
+
+        // Xử lý kết quả trả về
+        if (!order) {
+            return res.status(404).json({ message: "Không tìm thấy đơn hàng hoặc mã vận đơn không đúng." });
+        }
+
+        res.status(200).json({ 
+            message: "Tra cứu thành công",
+            data: order 
+        });
+
+    } catch (error) {
+        console.error("Tracking Error:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi tra cứu đơn hàng" });
     }
 };

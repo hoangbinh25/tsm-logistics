@@ -44,22 +44,26 @@ function LoginForm() {
          }),
       })
       const data = await res.json()
-      if(res.ok) {
-        login(data.user, data.accessToken, data.refreshToken)
-        toast({
-          title: "Đăng nhập thành công",
-          description: "Chào mừng bạn quay trở lại",
-        })
-        if(data.user.vai_tro === "QUAN_LY") {
-          router.push("/admin")
-        } else if (data.user.vai_tro === "TAI_XE") {
-          router.push("/driver-dashboard")
-        } else {
-          router.push("/")
-        }
-      }
-
+      
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại")
+
+      login(data.user, data.accessToken, data.refreshToken)
+
+      toast({
+        title: "Đăng nhập thành công",
+        description: `Xin chào ${data.user.ho_ten}`,
+      })
+
+      //  Logic điều hướng (Routing)
+      const role = data.user.vai_tro; 
+      
+      if(role === "QUAN_LY") {
+         router.push("/admin")
+      } else if (role === "TAI_XE" || role === "DRIVER") {
+         router.push("/driver")
+      } else {
+         router.push("/") // Khách hàng
+      }
 
     } catch (error: any) {
       toast({
@@ -70,7 +74,7 @@ function LoginForm() {
     } finally {
       setIsLoading(false)
     }
-  }
+}
 
   const loginGoogle = useGoogleLogin({
     onSuccess: async (tokenResponse) => {

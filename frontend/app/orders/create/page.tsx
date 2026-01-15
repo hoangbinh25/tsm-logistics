@@ -42,18 +42,13 @@ export default function CreateOrderPage() {
 
   // 1. Fetch dữ liệu khi Component mount
   useEffect(() => {
-    const token = localStorage.getItem("accessToken")
-    if (!token) {
-        toast({ title: "Chưa đăng nhập", description: "Vui lòng đăng nhập để tạo đơn", variant: "destructive" })
-        router.push("/login")
-        return;
-    }
     const fetchData = async () => {
         try {
-            // Gọi song song 2 API cho nhanh
+            // Gọi song song 2 API
             const [resKho, resDV] = await Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL}/services`)
+                // http tự động đính kèm token vào header
+                http(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`),
+                http(`${process.env.NEXT_PUBLIC_API_URL}/services`)
             ])
             
             if (resKho.ok && resDV.ok) {
@@ -81,14 +76,6 @@ export default function CreateOrderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    const token = localStorage.getItem("accessToken")
-    console.log("Token gửi đi:", token);
-    if (!token) {
-        toast({ title: "Phiên đăng nhập hết hạn", description: "Vui lòng đăng nhập lại", variant: "destructive" })
-        router.push("/login")
-        return
-    }
     
     if (!warehouseId || !serviceId) {
         toast({ title: "Thiếu thông tin", description: "Vui lòng chọn Kho và Dịch vụ", variant: "destructive" })

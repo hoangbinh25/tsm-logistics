@@ -80,7 +80,7 @@ export async function loginService(payload: LoginRequest): Promise<LoginResponse
         { sub: user.id, role: user.vai_tro },
         process.env.JWT_ACCESS_SECRET as string,
         {
-            expiresIn: "15m",
+            expiresIn: "1h",
         });
 
     const refreshToken = jwt.sign(
@@ -159,7 +159,7 @@ export async function registerService(payload: RegisterRequest): Promise<Registe
         { sub: newUser.id, role: "KHACH_HANG" },
         process.env.JWT_ACCESS_SECRET as string,
         {
-            expiresIn: "15",
+            expiresIn: "1h",
         }
     )
 
@@ -239,7 +239,7 @@ export async function loginGoogleService(token: string): Promise<LoginResponse> 
     const accessToken = jwt.sign(
         { sub: user.id, role: user.vai_tro },
         process.env.JWT_ACCESS_SECRET as string,
-        { expiresIn: "15m" }
+        { expiresIn: "1h" }
     );
 
     const refreshToken = jwt.sign(

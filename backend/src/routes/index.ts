@@ -14,7 +14,7 @@ const router = Router();
 
 // user
 router.use("/auth", authRoute)
-router.use("/user", userRoute)
+router.use("/users", userRoute)
 router.use("/orders", orderRoute)
 router.use('/drivers', driverRoute);
 

@@ -1,5 +1,6 @@
 import prisma from '../config/prisma';
 import { genId26 } from '../types/genID';
+import { sendOrderConfirmationEmail } from '../utils/mailer';
 interface CreateOrderParams {
     userId: string;
     senderAddress: string;
@@ -11,39 +12,26 @@ interface CreateOrderParams {
     items: any[];
 }
 
-export const getMyOrdersService = async (userId: string) => {
-    return await prisma.donHang.findMany({
-        where: {
-            khach_hang_id: userId 
-        },
-        orderBy: {
-            thoi_gian_dat: 'desc'
-        },
-        include: {
-            chi_tiet: true        // chi tiết đơn hàng
-        }
-    });
-};
+export const getOrdersService = async (filters: { userId?: string, isAdmin?: boolean }) => {
+    const { userId, isAdmin } = filters;
 
-export const getAllOrdersService = async () => {
+    const whereClause = isAdmin ? {} : { khach_hang_id: userId };
+
     return await prisma.donHang.findMany({
+        where: whereClause,
+        orderBy: { thoi_gian_tao: 'desc' }, 
         include: {
-            khach_hang: true, 
-            kho_gui: true,    
-            
-            tai_xe: {
+            khach_hang: true,  // Lấy thông tin khách
+            kho_gui: true,     // Lấy thông tin kho
+            chi_tiet: true,    // Lấy chi tiết hàng hóa
+            tai_xe: {          // Lấy thông tin tài xế
                 include: {
-                    nguoi_dung: { 
-                        select: { 
-                            ho_ten: true, 
-                            so_dien_thoai: true, 
-                            anh_dai_dien: true 
-                        }
+                    nguoi_dung: {
+                        select: { ho_ten: true, so_dien_thoai: true, anh_dai_dien: true }
                     }
                 }
             }
-        },
-        orderBy: { thoi_gian_tao: 'desc' } // Sắp xếp mới nhất lên đầu
+        }
     });
 };
 
@@ -63,7 +51,7 @@ export const createOrderService = async (params: CreateOrderParams) => {
     // 2. Tính phí vận chuyển
     // Ví dụ: 30k cơ bản + 5k cho mỗi kg
     const shippingFee = 30000 + (totalWeight * 5000);
-    const totalPayment = shippingFee; // Nếu người nhận trả ship. Nếu COD tiền hàng thì cộng thêm totalPrice.
+    const totalPayment = paymentMethod === 'COD' ? (totalPrice + shippingFee) : shippingFee;
 
     // 3. Tạo mã vận đơn tự động (VD: VNP + Timestamp cắt gọn)
     const orderCode = `DH${Date.now().toString().slice(-8)}`;
@@ -88,12 +76,17 @@ export const createOrderService = async (params: CreateOrderParams) => {
                 tong_tien_hang: totalPrice,
                 phi_van_chuyen: shippingFee,
                 giam_gia: 0,
-                tong_thanh_toan: paymentMethod === 'COD' ? (totalPrice + shippingFee) : shippingFee,
+                tong_thanh_toan: totalPayment,
                 
                 trang_thai_don_hang: 'TAO_MOI',
                 hinh_thuc_thanh_toan: paymentMethod === 'COD' ? 'COD' : 'ONLINE',
                 ghi_chu: note,
                 thoi_gian_dat: new Date(),
+            },
+            include: {
+                khach_hang: {
+                    select: { email: true, ho_ten: true }
+                }
             }
         });
 
@@ -117,6 +110,20 @@ export const createOrderService = async (params: CreateOrderParams) => {
 
         return order;
     });
+    if (newOrder.khach_hang?.email) {
+        const emailData = {
+            ma_don_hang: newOrder.ma_don_hang,
+            tong_thanh_toan: newOrder.tong_thanh_toan,
+            hinh_thuc_thanh_toan: newOrder.hinh_thuc_thanh_toan,
+            // Lấy thông tin người nhận từ params truyền vào
+            receiverName: receiverInfo.name,
+            receiverPhone: receiverInfo.phone
+        };
+
+        // Gọi hàm gửi mail (không await để trả response nhanh hơn)
+        sendOrderConfirmationEmail(newOrder.khach_hang.email, emailData)
+            .catch(err => console.error("Lỗi gửi mail xác nhận:", err));
+    }
 
     return newOrder;
 };
@@ -205,4 +212,47 @@ export const autoAssignDriverService = async (orderId: string) => {
             vehicle: suitableVehicle.bien_kiem_soat 
         };
     });
+};
+
+export const getDriverTasksService = async (userId: string) => {
+    const driverProfile = await prisma.taiXeProfile.findUnique({
+        where: { nguoi_dung_id: userId }
+    });
+
+    // Nếu user này không phải tài xế -> Trả về rỗng hoặc lỗi
+    if (!driverProfile) {
+        throw new Error("NOT_DRIVER");
+    }
+
+    // Lấy các đơn hàng được gán cho Profile ID này
+    const tasks = await prisma.donHang.findMany({
+        where: {
+            tai_xe_id: driverProfile.id, // dùng ID của Profile
+            trang_thai_don_hang: {
+                // Chỉ lấy các đơn đang cần xử lý
+                in: ['DA_PHAN_CONG', 'DANG_VAN_CHUYEN']
+            }
+        },
+        include: {
+            kho_gui: true,   // Để lấy địa chỉ lấy hàng
+            khach_hang: {    // Để lấy tên/sdt người gửi (nếu cần)
+                select: { ho_ten: true, so_dien_thoai: true }
+            }
+        },
+        orderBy: { thoi_gian_tao: 'desc' }
+    });
+
+    return tasks;
+};
+
+export const getOrderByCodeService = async (code: string) => {
+    // Tìm đơn hàng theo mã vận đơn (String)
+    const order = await prisma.donHang.findFirst({
+        where: { ma_don_hang: code },
+        include: {
+            kho_gui: true, // Lấy tên kho gửi
+        }
+    });
+
+    return order;
 };

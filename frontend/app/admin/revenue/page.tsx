@@ -10,22 +10,20 @@ import { useState, useEffect } from "react"
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
 } from 'recharts'
+import { useAuth } from "@/context/AuthContext"
 
 // Helper format tiền Việt
 const formatVND = (value: number) => 
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 
 export default function RevenuePage() {
-  const [data, setData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
+    const [data, setData] = useState<any>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const { http } = useAuth();
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem("accessToken")
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/revenue`, {
-            headers: { "Authorization": `Bearer ${token}` }
-        })
+        const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/revenue`)
         if (res.ok) {
             const result = await res.json()
             setData(result)

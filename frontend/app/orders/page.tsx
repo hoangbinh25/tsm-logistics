@@ -17,7 +17,7 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { Package, Plus, Loader2, ArrowRight } from "lucide-react"
-import { fetchWithAuth } from "@/utils/api";
+import { useAuth } from "@/context/AuthContext"
 
 // 1. Các hàm Helper định dạng (Tiền, Ngày, Trạng thái)
 const formatMoney = (amount: number) => 
@@ -48,23 +48,25 @@ const getStatusInfo = (status: string) => {
 }
 
 export default function MyOrdersPage() {
-  const router = useRouter()
-  const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+    const { http } = useAuth()  
+    const router = useRouter()
+    const [orders, setOrders] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
 
   // 2. Fetch API lấy danh sách
   useEffect(() => {
     const fetchOrders = async () => {
         try {
-            // Gọi API getMyOrders mà chúng ta đã viết ở Backend
-            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders`);
+            // Hàm http này sẽ tự động lấy 'token_user'
+            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders`);
             
             if (res.ok) {
                 const data = await res.json()
-                setOrders(data.data)
-            } else {
-                if(res.status === 401) router.push("/login")
-            }
+                // Xử lý data trả về (cẩn thận check dạng mảng hay object)
+                if(Array.isArray(data.data)) setOrders(data.data)
+                else if(Array.isArray(data)) setOrders(data)
+                else setOrders([])
+            } 
         } catch (error) {
             console.error("Lỗi tải đơn hàng:", error)
         } finally {
@@ -73,7 +75,7 @@ export default function MyOrdersPage() {
     }
 
     fetchOrders()
-  }, [router])
+  }, [http])
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">

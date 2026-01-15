@@ -1,9 +1,9 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
 
-// 1. Định nghĩa lại các Interface (Type)
+// 1. Interface
 interface User {
   id: string
   ho_ten: string
@@ -11,7 +11,8 @@ interface User {
   anh_dai_dien?: string
   so_dien_thoai?: string | null
   dia_chi?: string | null
-  vai_tro?: string
+  vai_tro?: string 
+  roles?: string[] 
 }
 
 interface AuthContextType {
@@ -25,90 +26,134 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// 2. Component Provider
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const pathname = usePathname()
   const router = useRouter()
 
+  // HELPER: Xác định Key lưu Storage dựa trên URL hiện tại
+  const getStorageKeys = useCallback(() => {
+    // Mặc định là User
+    let tokenKey = "token_user"
+    let userKey = "user_info_user"
+
+    if (pathname?.startsWith("/admin")) {
+      tokenKey = "token_admin"
+      userKey = "user_info_admin"
+    } else if (pathname?.startsWith("/driver")) {
+      tokenKey = "token_driver"
+      userKey = "user_info_driver"
+    }
+
+    return { tokenKey, userKey }
+  }, [pathname])
+
+  // 1. RESTORE SESSION (Khi F5 trang)
   useEffect(() => {
     const restoreSession = () => {
       try {
-        const storedToken = localStorage.getItem("accessToken");
-        const storedUser = localStorage.getItem("user");
+        const { tokenKey, userKey } = getStorageKeys() // Lấy key dựa theo trang đang đứng
+        
+        const storedToken = localStorage.getItem(tokenKey)
+        const storedUser = localStorage.getItem(userKey)
 
-        if(storedToken && storedUser) {
-          setUser(JSON.parse(storedUser));
+        if (storedToken && storedUser) {
+          setUser(JSON.parse(storedUser))
+        } else {
+          // Nếu đang ở trang Admin mà không có token admin -> user = null
+          setUser(null)
         }
-      } catch (error: any) {
-        console.error("Lỗi khôi phục phiên đăng nhập:", error);
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
+      } catch (error) {
+        console.error("Lỗi khôi phục phiên:", error)
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
-    restoreSession();
-  }, [])
+    }
+
+    restoreSession()
+  }, [getStorageKeys])
+
+  // 2. LOGIN (Lưu Token)
+   const login = (userData: User, accessToken: string, refreshToken: string) => {
+     setUser(userData)
+
+    // 1. LUÔN LUÔN lưu token User (Quan trọng nhất để không bị logout ở trang Client)
+    localStorage.setItem("token_user", accessToken)
+    localStorage.setItem("user_info_user", JSON.stringify(userData))
+
+    // 2. Lưu THÊM token cho các vai trò đặc biệt
+   const role = userData.vai_tro;
+     if (role === 'QUAN_LY' || role === 'ADMIN') {
+        // Nếu là Quản lý: Lưu thêm vào kho Admin
+       localStorage.setItem("token_admin", accessToken);
+       localStorage.setItem("user_info_admin", JSON.stringify(userData));
+    } 
+    else if (role === 'TAI_XE' || role === 'DRIVER') {
+        // Nếu là Tài xế: Lưu thêm vào kho Driver
+         localStorage.setItem("token_driver", accessToken);
+         localStorage.setItem("user_info_driver", JSON.stringify(userData));
+     }
+
+    // Lưu refreshToken 
+    localStorage.setItem("refreshToken", refreshToken)
+}
+
+  // 3. LOGOUT (Chỉ xóa ngăn hiện tại)
+  const logout = useCallback(() => {
+    const { tokenKey, userKey } = getStorageKeys()
+    
+    // Chỉ xóa token của phiên hiện tại (Không dùng localStorage.clear())
+    localStorage.removeItem(tokenKey)
+    localStorage.removeItem(userKey)
+    
+    setUser(null)
+    window.location.href = "/login"
+  }, [getStorageKeys])
 
   const updateProfile = (data: Partial<User>) => {
-    if(user) {
+    if (user) {
       const newUser = { ...user, ...data }
-
       setUser(newUser)
-
-      localStorage.setItem("user", JSON.stringify(newUser))
+      const { userKey } = getStorageKeys()
+      localStorage.setItem(userKey, JSON.stringify(newUser))
     }
   }
 
-  const login = (userData: User, accessToken: string, refreshToken: string) => {
-    setUser(userData)
-    localStorage.setItem("user", JSON.stringify(userData))
-    localStorage.setItem("accessToken", accessToken)
-    localStorage.setItem("refreshToken", refreshToken)
-  }
-
-  const logout = useCallback (() => {
-    setUser(null)
-    localStorage.clear()
-    window.location.href = "/login"
-  }, [router])
+  // 4. HTTP WRAPPER (Tự động lấy đúng Token để gửi)
   const http = async (url: string, options: RequestInit = {}) => {
-    // 1. Tự động lấy token mới nhất
-    const token = localStorage.getItem("accessToken");
+    // Lấy token dựa trên trang hiện tại đang đứng (Admin lấy token Admin, Driver lấy token Driver)
+    const { tokenKey } = getStorageKeys()
+    const token = localStorage.getItem(tokenKey)
 
-    // 2. Gộp Header
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers || {}),
-      ...(token ? { "Authorization": `Bearer ${token}` } : {})
-    } as HeadersInit;
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    } as HeadersInit
 
     try {
-      // 3. Gọi fetch gốc
-      const response = await fetch(url, { ...options, headers });
+      const response = await fetch(url, { ...options, headers })
 
-      // 4. Bắt lỗi 401 ngay tại đây
       if (response.status === 401) {
-        logout(); // Gọi ngay hàm logout của Context
-        return Promise.reject("Phiên đăng nhập hết hạn");
+        // Nếu lỗi 401 -> Chỉ logout phiên hiện tại
+        logout()
+        return Promise.reject("Phiên đăng nhập hết hạn")
       }
 
-      return response;
+      return response
     } catch (error) {
-      throw error;
+      throw error
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading , updateProfile, http}}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, updateProfile, http }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-// 3. Hook
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) throw new Error("useAuth must be used within an AuthProvider")

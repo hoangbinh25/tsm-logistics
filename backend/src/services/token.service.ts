@@ -8,7 +8,7 @@ export type JwtPayload = {
 
 export function signAccessToken(payload: JwtPayload) {
     return jwt.sign(payload, process.env.JWT_ACCESS_SECRET as string, {
-        expiresIn: "15m",
+        expiresIn: "1h",
     })
 }
 

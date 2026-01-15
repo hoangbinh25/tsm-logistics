@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { 
-  Search, Eye, MoreHorizontal, Truck, XCircle, AlertCircle, CheckCircle2, Zap 
+  Search, Eye, MoreHorizontal, Truck, XCircle, Zap 
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
@@ -19,6 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/context/AuthContext"
 
 // Helper format tiền
 const formatCurrency = (amount: any) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount))
@@ -39,20 +39,46 @@ export default function OrderManagementPage() {
   // Data Actions
   const [assignData, setAssignData] = useState({ tai_xe_id: "", phuong_tien_id: "" })
   const [cancelReason, setCancelReason] = useState("")
+  const { http } = useAuth()
 
   // 1. Fetch Data
   const fetchData = async () => {
-    const token = localStorage.getItem("accessToken")
-    const headers = { "Authorization": `Bearer ${token}` }
     try {
       const [resOrders, resDrivers, resVehicles] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, { headers }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/users?role=TAI_XE`, { headers }), // API lấy list tài xế
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/fleet`, { headers })
+        http(`${process.env.NEXT_PUBLIC_API_URL}/orders`),
+        http(`${process.env.NEXT_PUBLIC_API_URL}/users?role=TAI_XE`), // API lấy list tài xế
+        http(`${process.env.NEXT_PUBLIC_API_URL}/fleet`)
       ])
-      if (resOrders.ok) setOrders(await resOrders.json())
-      if (resDrivers.ok) setDrivers(await resDrivers.json())
-      if (resVehicles.ok) setVehicles(await resVehicles.json())
+      if (resOrders.ok) {
+        const payload = await resOrders.json()
+        
+        // Kiểm tra xem backend trả về [] hay { data: [] }
+        if (Array.isArray(payload)) {
+            setOrders(payload)
+        } else if (payload.data && Array.isArray(payload.data)) {
+            setOrders(payload.data) // Lấy đúng mảng bên trong
+        } else {
+            setOrders([]) // Fallback nếu dữ liệu lạ
+        }
+    } else {
+        setOrders([]) // Nếu lỗi mạng/401 thì set rỗng để không crash
+    }
+
+    // 2. XỬ LÝ TÀI XẾ (Tương tự)
+    if (resDrivers.ok) {
+        const payload = await resDrivers.json()
+        if (Array.isArray(payload)) setDrivers(payload)
+        else if (payload.data && Array.isArray(payload.data)) setDrivers(payload.data)
+        else setDrivers([])
+    }
+
+    // 3. XỬ LÝ XE (Tương tự)
+    if (resVehicles.ok) {
+        const payload = await resVehicles.json()
+        if (Array.isArray(payload)) setVehicles(payload)
+        else if (payload.data && Array.isArray(payload.data)) setVehicles(payload.data)
+        else setVehicles([])
+    }
     } catch (error) { console.error("Lỗi tải dữ liệu", error) }
   }
 
@@ -62,11 +88,9 @@ export default function OrderManagementPage() {
   const handleManualAssign = async () => {
     if(!assignData.tai_xe_id || !assignData.phuong_tien_id) return alert("Vui lòng chọn đủ Tài xế và Xe!")
     setIsLoading(true)
-    const token = localStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/assign`, {
+      const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/assign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(assignData)
       })
       if (res.ok) {
@@ -82,32 +106,28 @@ export default function OrderManagementPage() {
   // 3. Xử lý Phân công TỰ ĐỘNG (Logic mới)
   const handleAutoAssign = async () => {
     setIsLoading(true)
-    const token = localStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/auto-assign`, {
+      const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/auto-assign`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
       })
       const data = await res.json()
       
       if (res.ok) {
         // Thông báo kết quả tìm được
-        alert(`🎉 Thành công! Đã gán:\n- Tài xế: ${data.driver}\n- Xe: ${data.vehicle}`)
+        alert(`Thành công! Đã gán:\n- Tài xế: ${data.driver}\n- Xe: ${data.vehicle}`)
         setIsAssignOpen(false)
         fetchData()
       } else {
-        alert(`⚠️ Không tìm được: ${data.message}`)
+        alert(`Không tìm được: ${data.message}`)
       }
     } catch (error) { console.error(error) } finally { setIsLoading(false) }
   }
 
   // 4. Xử lý Hủy đơn
   const handleCancel = async () => {
-    const token = localStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/cancel`, {
+      const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/cancel`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ ly_do: cancelReason })
       })
       if (res.ok) {
