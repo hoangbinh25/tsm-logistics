@@ -13,33 +13,8 @@ export default function DriverNotificationsPage() {
   useEffect(() => {
     const fetchNotis = async () => {
         try {
-            // 👇 Khi nào bạn làm Backend xong API /notifications thì bỏ comment dòng dưới
-            // const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/notifications`)
-            // if (res.ok) setNotifications((await res.json()).data)
-
-            // 👇 MOCK DATA (Dữ liệu giả để hiển thị trước)
-            setTimeout(() => {
-                setNotifications([
-                    {
-                        id: 1,
-                        title: "Đơn hàng mới được gán",
-                        content: "Bạn đã được gán đơn hàng #DH5908. Vui lòng kiểm tra và đi lấy hàng.",
-                        type: "ORDER",
-                        isRead: false,
-                        createdAt: new Date().toISOString()
-                    },
-                    {
-                        id: 2,
-                        title: "Cập nhật hệ thống",
-                        content: "Hệ thống sẽ bảo trì vào lúc 00:00 tối nay.",
-                        type: "SYSTEM",
-                        isRead: true,
-                        createdAt: new Date(Date.now() - 86400000).toISOString()
-                    }
-                ])
-                setLoading(false)
-            }, 1000)
-
+            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/notifications`)
+            if (res.ok) setNotifications((await res.json()).data)
         } catch (error) {
             console.error(error)
         }

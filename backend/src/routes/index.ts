@@ -9,6 +9,7 @@ import revenueRoute from "./revenue.route";
 import transportServiceRoute from "./transport-service.route"
 import orderRoute from "./order.route"
 import driverRoute from './driver.route';
+import notificationRoute from './notification.route'
 
 const router = Router();
 
@@ -17,6 +18,9 @@ router.use("/auth", authRoute)
 router.use("/users", userRoute)
 router.use("/orders", orderRoute)
 router.use('/drivers', driverRoute);
+
+// driver
+router.use('/notifications', notificationRoute)
 
 // admin
 router.use("/fleet", fleetRoute)

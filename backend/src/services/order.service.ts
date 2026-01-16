@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { genId26 } from '../types/genID';
-import { sendOrderConfirmationEmail } from '../utils/mailer';
+import { sendDeliverySuccessEmail, sendOrderConfirmationEmail } from '../utils/mailer';
+import { Prisma, TrangThaiDonHang } from '@prisma/client';
 interface CreateOrderParams {
     userId: string;
     senderAddress: string;
@@ -12,25 +13,111 @@ interface CreateOrderParams {
     items: any[];
 }
 
-export const getOrdersService = async (filters: { userId?: string, isAdmin?: boolean }) => {
-    const { userId, isAdmin } = filters;
+interface GetOrdersParams {
+    userId: string;
+    role: string;               // 'QUAN_LY' | 'TAI_XE' | 'USER'
+    type?: 'active' | 'history'; // active: Đang xử lý, history: Đã xong/Hủy
+}
 
-    const whereClause = isAdmin ? {} : { khach_hang_id: userId };
+export const getOrdersService = async ({ userId, role, type }: GetOrdersParams) => {
+    // 1. Khởi tạo điều kiện lọc
+    let whereClause: Prisma.DonHangWhereInput = {};
 
+    // 2. PHÂN QUYỀN (Ai được xem đơn nào?)
+    if (role === 'QUAN_LY') {
+        // Admin xem được tất cả -> Không cần thêm điều kiện ID
+    } else if (role === 'TAI_XE') {
+        // Tài xế chỉ xem đơn mình được gán
+        whereClause.tai_xe_id = userId;
+        const driverProfile = await prisma.taiXeProfile.findUnique({ where: { nguoi_dung_id: userId }});
+        if (driverProfile) {
+            whereClause.tai_xe_id = driverProfile.id;
+        } else {
+             // Nếu là tài xế mà chưa có profile -> không thấy đơn nào
+            return [];
+        }
+
+    } else {
+        // Khách hàng (USER) chỉ xem đơn mình đặt
+        whereClause.khach_hang_id = userId;
+    }
+
+    // 3. LỌC THEO TRẠNG THÁI (Đang chạy vs Lịch sử)
+    if (type) {
+        const historyStatuses = ['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG'];
+        
+        if (type === 'history') {
+            // Lấy đơn đã xong
+            whereClause.trang_thai_don_hang = { in: historyStatuses as any };
+        } else if (type === 'active') {
+            // Lấy đơn đang xử lý (Không nằm trong nhóm lịch sử)
+            whereClause.trang_thai_don_hang = { notIn: historyStatuses as any };
+        }
+    }
+
+    // 4. Query Database
     return await prisma.donHang.findMany({
         where: whereClause,
         orderBy: { thoi_gian_tao: 'desc' }, 
         include: {
-            khach_hang: true,  // Lấy thông tin khách
-            kho_gui: true,     // Lấy thông tin kho
-            chi_tiet: true,    // Lấy chi tiết hàng hóa
-            tai_xe: {          // Lấy thông tin tài xế
+            khach_hang: true,
+            kho_gui: true,
+            chi_tiet: true,
+            tai_xe: {
                 include: {
                     nguoi_dung: {
                         select: { ho_ten: true, so_dien_thoai: true, anh_dai_dien: true }
                     }
                 }
-            }
+            },
+            phuong_tien: true 
+        }
+    });
+};
+
+export const getTrackingOrderService = async (code: string, viewerId: string, role: string) => {
+    // 1. Tìm đơn hàng trong DB
+    const order = await prisma.donHang.findFirst({
+        where: { ma_don_hang: code },
+        include: {
+            kho_gui: true,
+            khach_hang: true,
+            chi_tiet: true,
+            tai_xe: {
+                include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
+            },
+            phuong_tien: true
+        }
+    });
+
+    // 2. Kiểm tra tồn tại
+    if (!order) {
+        throw new Error("ORDER_NOT_FOUND");
+    }
+
+    const isAdmin = role === 'QUAN_LY';
+    
+    // Chủ sở hữu (khach_hang_id trùng với viewerId) được xem
+    const isOwner = order.khach_hang_id === viewerId;
+
+    if (!isAdmin && !isOwner) {
+        throw new Error("FORBIDDEN");
+    }
+
+    return order;
+};
+
+export const getOrderByIdService = async (orderId: string) => {
+    return await prisma.donHang.findUnique({
+        where: { id: orderId },
+        include: {
+            khach_hang: true, // Lấy thông tin người nhận
+            kho_gui: true,    // Lấy kho gửi
+            chi_tiet: true,   // Lấy danh sách hàng hóa bên trong
+            tai_xe: {         // Lấy thông tin tài xế (nếu cần hiển thị)
+                include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
+            },
+            phuong_tien: true
         }
     });
 };
@@ -129,7 +216,7 @@ export const createOrderService = async (params: CreateOrderParams) => {
 };
 
 export const autoAssignDriverService = async (orderId: string) => {
-    // 1. Lấy thông tin đơn hàng để biết: Kho gửi ở đâu? Nặng bao nhiêu?
+    // 1. Lấy thông tin đơn hàng
     const order = await prisma.donHang.findUnique({
         where: { id: orderId },
         include: { kho_gui: true }
@@ -137,80 +224,128 @@ export const autoAssignDriverService = async (orderId: string) => {
 
     if (!order) throw new Error("Đơn hàng không tồn tại");
 
-    // Ép kiểu Decimal sang Number để so sánh
     const orderWeight = Number(order.tong_khoi_luong);
     const orderProvince = order.kho_gui.tinh_thanh; // VD: "Hà Nội"
 
     // 2. Tìm XE phù hợp (Đủ tải + Đang rảnh)
     const suitableVehicle = await prisma.phuongTien.findFirst({
         where: {
-            trang_thai: 'SAN_SANG',
+            trang_thai: 'SAN_SANG', // Chỉ lấy xe đang rảnh
             tai_trong_toi_da: {
-                gte: orderWeight // Tải trọng xe >= Khối lượng hàng
+                gte: orderWeight
             }
         },
         orderBy: {
-            tai_trong_toi_da: 'asc' // Ưu tiên chọn xe nhỏ nhất vừa đủ (tiết kiệm chi phí)
+            tai_trong_toi_da: 'asc' // Chọn xe nhỏ nhất vừa đủ để tiết kiệm
         }
     });
 
     if (!suitableVehicle) {
-        throw new Error(`Không tìm thấy xe nào tải trọng >= ${orderWeight}kg đang sẵn sàng.`);
+        throw new Error(`Không tìm thấy xe tải trọng >= ${orderWeight}kg đang sẵn sàng.`);
     }
 
-    // 3. Tìm TÀI XẾ phù hợp (Cùng khu vực + Đang rảnh)
-    const suitableDriver = await prisma.nguoiDung.findFirst({
+    // 3. Tìm TÀI XẾ phù hợp (Profile Sẵn sàng + Cùng khu vực)
+    const suitableDriverProfile = await prisma.taiXeProfile.findFirst({
         where: {
-            vai_tro: 'TAI_XE',
-            trang_thai_tai_khoan: 'ACTIVE',
-            dia_chi: {
-                contains: orderProvince
-            },
-            // Đảm bảo tài xế chưa nhận đơn nào khác (đang rảnh)
-            phan_cong_tai_xe: {
-                none: {
-                    trang_thai_phan_cong: { in: ['MOI', 'DA_XAC_NHAN', 'DANG_THUC_HIEN'] }
-                }
+            trang_thai_cong_tac: 'DANG_HOAT_DONG', 
+            nguoi_dung: {
+                dia_chi: {
+                    contains: orderProvince 
+                },
+                trang_thai_tai_khoan: 'ACTIVE'
             }
-        }
+        },
+        include: { nguoi_dung: true }
     });
 
-    if (!suitableDriver) {
-        throw new Error(`Có xe (${suitableVehicle.bien_kiem_soat}) nhưng không tìm thấy tài xế nào ở khu vực ${orderProvince} đang rảnh.`);
+    if (!suitableDriverProfile) {
+        throw new Error(`Có xe (${suitableVehicle.bien_kiem_soat}) nhưng không tìm thấy tài xế rảnh tại khu vực ${orderProvince}.`);
     }
 
     // 4. Thực hiện Phân công (Transaction)
     return await prisma.$transaction(async (tx) => {
-        // Cập nhật đơn hàng
+        
+        // A. Cập nhật Đơn hàng (QUAN TRỌNG NHẤT ĐỂ HIỆN LÊN ADMIN)
         await tx.donHang.update({
             where: { id: orderId },
-            data: { trang_thai_don_hang: 'DA_PHAN_CONG' }
-        });
-
-        // Tạo bản ghi phân công
-        await tx.phanCongDonHang.create({
-            data: {
-                id: genId26(),
-                don_hang_id: orderId,
-                tai_xe_id: suitableDriver.id,
-                phuong_tien_id: suitableVehicle.id,
-                thoi_gian_phan_cong: new Date(),
-                thoi_gian_ket_thuc_du_kien: new Date(Date.now() + 24 * 60 * 60 * 1000), // +1 ngày
-                trang_thai_phan_cong: 'MOI'
+            data: { 
+                tai_xe_id: suitableDriverProfile.id, 
+                id: suitableVehicle.id,             
+                trang_thai_don_hang: 'DA_PHAN_CONG',
+                thoi_gian_cap_nhat: new Date()
             }
         });
 
-        // Cập nhật xe thành bận
+        // B. Update Tài xế -> BẬN (Để không bị gán đơn khác)
+        await tx.taiXeProfile.update({
+            where: { id: suitableDriverProfile.id },
+            data: { trang_thai_cong_tac: 'TAM_NGUNG' }
+        });
+
+        // C. Update Xe -> HOẠT ĐỘNG
         await tx.phuongTien.update({
             where: { id: suitableVehicle.id },
-            data: { trang_thai: 'DANG_VAN_CHUYEN' }
+            data: { trang_thai: 'DANG_VAN_CHUYEN' } 
+        });
+
+        // D. Tạo thông báo cho App Tài xế (Để tài xế nhận được tin)
+        await tx.thongBao.create({
+            data: {
+                nguoi_nhan_id: suitableDriverProfile.nguoi_dung_id,
+                tieu_de: "Đơn hàng mới (Tự động)!",
+                noi_dung: `Bạn vừa được hệ thống gán đơn hàng #${order.ma_don_hang}. Vui lòng kiểm tra.`,
+                loai_thong_bao: "ORDER"
+            }
         });
 
         return { 
             message: "Phân công tự động thành công", 
-            driver: suitableDriver.ho_ten, 
+            driver: suitableDriverProfile.nguoi_dung?.ho_ten, 
             vehicle: suitableVehicle.bien_kiem_soat 
         };
+    });
+};
+
+export const assignOrderService = async (orderId: string, userIdOrDriverId: string, vehicleId: string) => {
+    
+    // 1. Check đơn hàng
+    const order = await prisma.donHang.findUnique({ where: { id: orderId } });
+    if (!order) throw new Error("Không tìm thấy đơn hàng");
+
+    // 2. LOGIC THÔNG MINH: Tìm ID Tài xế chuẩn
+    let finalDriverId = userIdOrDriverId;
+
+    // Kiểm tra xem ID này có tồn tại trong bảng TaiXe không
+    const driverExists = await prisma.taiXeProfile.findUnique({ 
+        where: { id: userIdOrDriverId } 
+    });
+
+    if (!driverExists) {
+        // Nếu không phải ID Tài xế, thử tìm xem có phải ID Người dùng không
+        const driverByUserId = await prisma.taiXeProfile.findFirst({ 
+            where: { nguoi_dung_id: userIdOrDriverId } 
+        });
+
+        if (driverByUserId) {
+            finalDriverId = driverByUserId.id; // Tìm thấy ID Tài xế thật
+        } else {
+            throw new Error("Người dùng này chưa đăng ký hồ sơ Tài xế hoặc ID không hợp lệ.");
+        }
+    }
+
+    // 3. Thực hiện Update với ID chuẩn vừa tìm được
+    return await prisma.donHang.update({
+        where: { id: orderId },
+        data: {
+            tai_xe_id: finalDriverId, // Dùng ID chuẩn
+            phuong_tien_id: vehicleId,
+            trang_thai_don_hang: 'DA_PHAN_CONG',
+            thoi_gian_cap_nhat: new Date()
+        },
+        include: {
+            tai_xe: { include: { nguoi_dung: true } },
+            phuong_tien: true
+        }
     });
 };
 
@@ -255,4 +390,64 @@ export const getOrderByCodeService = async (code: string) => {
     });
 
     return order;
+};
+
+export const updateOrderStatusService = async (orderId: string, newStatus: string) => {
+    // 1. Validation Logic
+    const validStatuses = ['DANG_LAY_HANG', 'DANG_VAN_CHUYEN', 'DA_GIAO', 'HUY'];
+    if (!validStatuses.includes(newStatus)) {
+        throw new Error("INVALID_STATUS");
+    }
+
+    // 2. Lấy thông tin đơn hàng hiện tại
+    const currentOrder = await prisma.donHang.findUnique({ 
+        where: { id: orderId }, 
+        include: {
+            khach_hang: true,
+        }
+    });
+
+    if (!currentOrder) {
+        throw new Error("ORDER_NOT_FOUND");
+    }
+
+    // 3. Thực hiện Transaction cập nhật
+    await prisma.$transaction(async (tx) => {
+        // Cập nhật trạng thái đơn hàng
+        await tx.donHang.update({
+            where: { id: orderId },
+            data: {
+                trang_thai_don_hang: newStatus as TrangThaiDonHang,
+                thoi_gian_cap_nhat: new Date(),
+                // Nếu là ĐÃ GIAO thì cập nhật thời gian hoàn thành
+                ...(newStatus === 'DA_GIAO' && { thoi_gian_hoan_thanh: new Date() })
+            }
+        });
+
+        // Logic mở khóa Tài xế & Xe (Nếu đơn hoàn thành hoặc hủy)
+        if (newStatus === 'DA_GIAO' || newStatus === 'HUY') {
+            // Mở khóa tài xế
+            if (currentOrder.tai_xe_id) {
+                await tx.taiXeProfile.update({
+                    where: { id: currentOrder.tai_xe_id },
+                    data: { trang_thai_cong_tac: 'DANG_HOAT_DONG' } 
+                });
+            }
+            if (currentOrder.phuong_tien_id) {
+                await tx.phuongTien.update({
+                    where: { id: currentOrder.phuong_tien_id },
+                    data: { trang_thai: 'SAN_SANG' } 
+                });
+            }
+        }
+        if(newStatus === 'DA_GIAO' && currentOrder.khach_hang?.email) {
+            sendDeliverySuccessEmail(
+                currentOrder.khach_hang.email,
+                currentOrder.ma_don_hang,
+                currentOrder.khach_hang.ho_ten || "Quý khách"
+            );
+        }
+    });
+
+    return { success: true };
 };

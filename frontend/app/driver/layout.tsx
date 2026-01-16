@@ -1,4 +1,5 @@
 import { DriverBottomNav } from "@/components/driver/bottom-nav"
+import { Toaster } from 'react-hot-toast';
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,7 +14,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
         </header>
 
         {children}
-        
+        <Toaster position="top-center" reverseOrder={false} />
         <DriverBottomNav />
       </div>
     </div>

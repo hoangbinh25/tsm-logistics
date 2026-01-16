@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { 
-  Search, Eye, MoreHorizontal, Truck, XCircle, Zap 
+  Search, Eye, MoreHorizontal, Truck, XCircle, Zap, 
+  Loader2
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/context/AuthContext"
+import { useToast } from "@/hooks/use-toast"
 
 // Helper format tiền
 const formatCurrency = (amount: any) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount))
@@ -39,7 +41,8 @@ export default function OrderManagementPage() {
   // Data Actions
   const [assignData, setAssignData] = useState({ tai_xe_id: "", phuong_tien_id: "" })
   const [cancelReason, setCancelReason] = useState("")
-  const { http } = useAuth()
+  const { http, logout } = useAuth()
+  const { toast } = useToast()
 
   // 1. Fetch Data
   const fetchData = async () => {
@@ -86,21 +89,60 @@ export default function OrderManagementPage() {
 
   // 2. Xử lý Phân công THỦ CÔNG
   const handleManualAssign = async () => {
-    if(!assignData.tai_xe_id || !assignData.phuong_tien_id) return alert("Vui lòng chọn đủ Tài xế và Xe!")
+    if(!assignData.tai_xe_id || !assignData.phuong_tien_id) {
+        toast({
+            variant: "destructive",
+            title: "Thiếu thông tin",
+            description: "Vui lòng chọn đầy đủ Tài xế và Phương tiện.",
+        })
+        return
+    }
+
     setIsLoading(true)
     try {
+      console.log("Dữ liệu gửi đi:", assignData);
+
       const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/assign`, {
         method: "POST",
         body: JSON.stringify(assignData)
       })
+
+      // Đọc JSON an toàn 
+      const data = await res.json().catch(() => null);
+
       if (res.ok) {
-        alert("Phân công thành công!")
+        toast({
+            title: "Phân công thành công!",
+            description: `Đơn hàng đã được giao cho tài xế.`,
+            className: "bg-green-600 text-white border-none",
+        })
         setIsAssignOpen(false)
         fetchData()
       } else {
-        alert("Lỗi phân công")
+        if (res.status === 401) {
+            toast({ variant: "destructive", title: "Hết phiên đăng nhập", description: "Vui lòng đăng nhập lại." });
+            if (logout) logout();
+            return;
+        }
+        const errorMessage = data?.message || "Lỗi không xác định từ server";
+        const errorDetail = data?.error ? (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)) : "";
+
+        toast({
+            variant: "destructive",
+            title: "Phân công thất bại",
+            description: `${errorMessage} ${errorDetail}`, 
+        })
       }
-    } catch (error) { console.error(error) } finally { setIsLoading(false) }
+    } catch (error) { 
+        console.error(error);
+        toast({
+            variant: "destructive",
+            title: "Lỗi kết nối",
+            description: "Không thể kết nối đến server.",
+        })
+    } finally { 
+        setIsLoading(false) 
+    }
   }
 
   // 3. Xử lý Phân công TỰ ĐỘNG (Logic mới)
@@ -113,29 +155,78 @@ export default function OrderManagementPage() {
       const data = await res.json()
       
       if (res.ok) {
-        // Thông báo kết quả tìm được
-        alert(`Thành công! Đã gán:\n- Tài xế: ${data.driver}\n- Xe: ${data.vehicle}`)
+        toast({
+            title: "Phân công tự động thành công!",
+            description: (
+                <div className="mt-2 text-sm">
+                    <p>Tài xế: <strong>{data.driver}</strong></p>
+                    <p>Xe: <strong>{data.vehicle}</strong></p>
+                </div>
+            ),
+            className: "bg-green-600 text-white border-none",
+        })
         setIsAssignOpen(false)
         fetchData()
       } else {
-        alert(`Không tìm được: ${data.message}`)
+        const errorMessage = data.message || "Có lỗi xảy ra";
+        const errorDetail = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+
+        toast({
+            variant: "destructive",
+            title: "Phân công thất bại",
+            description: `${errorMessage} ${errorDetail ? `(${errorDetail})` : ''}`,
+        })
       }
     } catch (error) { console.error(error) } finally { setIsLoading(false) }
   }
 
   // 4. Xử lý Hủy đơn
   const handleCancel = async () => {
+    // Validate lý do
+    if (!cancelReason.trim()) {
+        toast({
+            variant: "destructive",
+            title: "Thiếu thông tin",
+            description: "Vui lòng nhập lý do hủy đơn hàng.",
+        })
+        return
+    }
+
+    setIsLoading(true)
     try {
       const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrder.id}/cancel`, {
         method: "PUT",
         body: JSON.stringify({ ly_do: cancelReason })
       })
+
+      const data = await res.json() // Đọc response để lấy message lỗi nếu có
+
       if (res.ok) {
-        alert("Đã hủy đơn hàng")
+        toast({
+            title: "Đã hủy đơn hàng",
+            description: `Đơn ${selectedOrder.ma_don_hang} đã được hủy thành công.`,
+            className: "bg-green-600 text-white border-none",
+        })
         setIsCancelOpen(false)
+        setCancelReason("") 
         fetchData()
+      } else {
+        toast({
+            variant: "destructive",
+            title: "Hủy thất bại",
+            description: data.message || "Có lỗi xảy ra khi hủy đơn.",
+        })
       }
-    } catch (error) { console.error(error) }
+    } catch (error) { 
+        console.error(error)
+        toast({
+            variant: "destructive",
+            title: "Lỗi kết nối",
+            description: "Vui lòng kiểm tra lại mạng hoặc server.",
+        })
+    } finally {
+        setIsLoading(false)
+    }
   }
 
   // Helper render UI
@@ -219,7 +310,7 @@ export default function OrderManagementPage() {
                     <div className="flex items-center gap-2">
                         {/* Avatar nhỏ (nếu có) */}
                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border">
-                             {order.tai_xe.nguoi_dung?.anh_dai_dien ? (
+                             {order.tai_xe.nguoi_dung? (
                                 <img src={order.tai_xe.nguoi_dung.anh_dai_dien} className="w-full h-full object-cover"/>
                              ) : (
                                 <Truck className="w-4 h-4 text-slate-500"/>
@@ -256,15 +347,24 @@ export default function OrderManagementPage() {
                     <Eye className="w-4 h-4 mr-2" /> Xem chi tiết
                   </DropdownMenuItem>
                   
-                  {['TAO_MOI', 'CHO_XAC_NHAN'].includes(order.trang_thai_don_hang) && (
-                      <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsAssignOpen(true) }}>
-                        <Truck className="w-4 h-4 mr-2 text-blue-600" /> Phân công xe
-                      </DropdownMenuItem>
+                  {['TAO_MOI', 'CHO_XAC_NHAN', 'DA_PHAN_CONG'].includes(order.trang_thai_don_hang) && (
+                    <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsAssignOpen(true) }}>
+                      <Truck className="w-4 h-4 mr-2 text-blue-600" /> 
+                      {order.trang_thai_don_hang === 'DA_PHAN_CONG' ? 'Điều phối lại' : 'Phân công xe'}
+                    </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-red-600" onClick={() => { setSelectedOrder(order); setIsCancelOpen(true) }}>
-                      <XCircle className="w-4 h-4 mr-2" /> Hủy đơn hàng
-                  </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  {['TAO_MOI', 'CHO_XAC_NHAN', 'DA_PHAN_CONG'].includes(order.trang_thai_don_hang) && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50" 
+                            onClick={() => { setSelectedOrder(order); setIsCancelOpen(true) }}
+                        >
+                            <XCircle className="w-4 h-4 mr-2" /> Hủy đơn hàng
+                        </DropdownMenuItem>
+                    </>
+                )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </td>
@@ -339,6 +439,46 @@ export default function OrderManagementPage() {
             </DialogFooter>
          </DialogContent>
       </Dialog>
+{/* --- MODAL HỦY ĐƠN --- */}
+      <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
+    <DialogContent>
+        <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+                <XCircle className="w-5 h-5" /> Xác nhận hủy đơn hàng
+            </DialogTitle>
+            <DialogDescription>
+                Hành động này không thể hoàn tác. Đơn hàng <strong>{selectedOrder?.ma_don_hang}</strong> sẽ chuyển sang trạng thái ĐÃ HỦY.
+            </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+            <Label className="mb-2 block">Lý do hủy đơn <span className="text-red-500">*</span></Label>
+            <Input 
+                placeholder="Ví dụ: Khách boom hàng, sai địa chỉ..." 
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+            />
+        </div>
+
+        <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsCancelOpen(false)} disabled={isLoading}>
+                Đóng
+            </Button>
+            <Button 
+                variant="destructive" 
+                onClick={handleCancel} 
+                disabled={isLoading}
+            >
+                {isLoading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</>
+                ) : (
+                    "Xác nhận Hủy"
+                )}
+            </Button>
+        </DialogFooter>
+    </DialogContent>
+</Dialog>
+      
     </main>
   )
 }

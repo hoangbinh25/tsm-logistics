@@ -168,10 +168,10 @@ export default function MyOrdersPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            {/* Link sang trang tracking chi tiết */}
-                                            <Link href={`/tracking/${order.ma_don_hang}`}>
-                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                    <ArrowRight className="h-4 w-4" />
+                                            <Link href={`/orders/${order.id}`}>
+                                                <Button variant="outline" size="sm" className="h-8">
+                                                    Chi tiết
+                                                    <ArrowRight className="h-4 w-4 ml-1" />
                                                 </Button>
                                             </Link>
                                         </TableCell>

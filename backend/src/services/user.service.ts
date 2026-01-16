@@ -35,26 +35,19 @@ export const getUsersService = async (role?: string) => {
     return users;
 };
 
-export const updateProfileService = async (userId: string, data: any, file?: Express.Multer.File) => {
-    let avatarUrl = undefined;
-
-    // 1. Nếu có file ảnh gửi lên -> Upload lấy link
-    if (file) {
-        avatarUrl = await uploadToCloudinary(file.buffer);
-    }
-
-    // 2. Update vào Database
-    const updatedUser = await prisma.nguoiDung.update({
+export const updateProfileService = async (userId: string, data: any, avatarUrl?: string) => {
+    const phoneToSave = (data.so_dien_thoai && data.so_dien_thoai.trim() !== "") 
+                        ? data.so_dien_thoai 
+                        : null;
+    
+    return await prisma.nguoiDung.update({
         where: { id: userId },
         data: {
             ho_ten: data.ho_ten,
-            so_dien_thoai: data.so_dien_thoai || null, // Xử lý empty string
+            so_dien_thoai: phoneToSave,
             dia_chi: data.dia_chi,
-            // Nếu có ảnh mới thì update, không thì giữ nguyên
-            ...(avatarUrl && { anh_dai_dien: avatarUrl }),
-        },
+            // Chỉ update nếu có link ảnh mới
+            ...(avatarUrl && { anh_dai_dien: avatarUrl }) 
+        }
     });
-
-    return updatedUser;
 };
-

@@ -64,3 +64,28 @@ export const sendOrderConfirmationEmail = async (to: string, orderDetails: any) 
     `
   });
 };
+
+export const sendDeliverySuccessEmail = async (toEmail: string, orderCode: string, customerName: string) => {
+    try {
+        const mailOptions = {
+            from: `"VietLogistics" <${process.env.MAIL_USER}>`,
+            to: toEmail,
+            subject: `Đơn hàng #${orderCode} đã giao thành công!`,
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                    <h2 style="color: #16a34a;">Giao hàng thành công!</h2>
+                    <p>Xin chào <strong>${customerName}</strong>,</p>
+                    <p>Chúc mừng bạn! Đơn hàng <strong>#${orderCode}</strong> của bạn đã được tài xế giao đến nơi an toàn.</p>
+                    <hr style="border: 0; border-top: 1px solid #eee;" />
+                    <p>Cảm ơn bạn đã tin tưởng sử dụng dịch vụ của VietLogistics.</p>
+                    <p>Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ hotline: 1900 xxxx.</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Email sent to ${toEmail}`);
+    } catch (error) {
+        console.error("Lỗi gửi mail:", error);
+    }
+};

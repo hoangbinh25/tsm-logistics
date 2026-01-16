@@ -31,6 +31,7 @@ enum TrangThaiDonHang {
   TAO_MOI
   CHO_XAC_NHAN
   DA_PHAN_CONG
+  DANG_LAY_HANG
   DANG_VAN_CHUYEN
   DA_GIAO
   GIAO_KHONG_THANH_CONG
@@ -136,6 +137,8 @@ model NguoiDung {
   don_hang_nguoi_tao    DonHang[]         @relation("DonHang_NguoiTao")
   thanh_toan            ThanhToan[]
   phan_cong_tai_xe      PhanCongDonHang[] @relation("PhanCong_TaiXe")
+
+  thong_bao             ThongBao[]
 }
 
 model TaiXeProfile {
@@ -212,6 +215,9 @@ model DonHang {
   tai_xe_id       String?  // Cho phép null (vì đơn mới chưa có tài xế)
   tai_xe          TaiXeProfile? @relation(fields: [tai_xe_id], references: [id])
 
+  phuong_tien_id  String?
+  phuong_tien     PhuongTien?   @relation(fields: [phuong_tien_id], references: [id])
+
   @@index([khach_hang_id])
   @@index([nguoi_tao_id])
   @@index([kho_gui_id])
@@ -276,6 +282,8 @@ model PhuongTien {
   ghi_chu               String?
   thoi_gian_tao          DateTime            @default(now())
   thoi_gian_cap_nhat     DateTime            @updatedAt
+
+  don_hang        DonHang[]
 
   phan_cong             PhanCongDonHang[]   @relation("PhanCong_PhuongTien")
 }
@@ -344,4 +352,16 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+model ThongBao {
+  id              String    @id @default(cuid())
+  nguoi_nhan_id   String    
+  tieu_de         String
+  noi_dung        String
+  loai_thong_bao  String    @default("SYSTEM")
+  da_xem          Boolean   @default(false)
+  thoi_gian_tao   DateTime  @default(now())
+
+  nguoi_nhan      NguoiDung @relation(fields: [nguoi_nhan_id], references: [id])
 }

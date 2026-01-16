@@ -8,7 +8,7 @@ export function DriverBottomNav() {
   
   const navs = [
     { href: "/driver", label: "Trang chủ", icon: Home },
-    { href: "/driver/history", label: "Lịch sử", icon: ListChecks },
+    { href: "/driver/orders", label: "Lịch sử", icon: ListChecks },
     { href: "/driver/notifications", label: "Thông báo", icon: Bell },
     { href: "/driver/profile", label: "Tài khoản", icon: User },
   ]

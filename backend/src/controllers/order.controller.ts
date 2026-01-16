@@ -8,17 +8,15 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
         const userId = req.user?.sub;
         if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
 
-        // Lấy role từ token
-        const roles = req.user?.role || [];
+        const role = req.user?.role || 'USER'; 
         
-        // Kiểm tra quyền Admin
-        const isAdmin = roles === 'QUAN_LY';
+        // Lấy tham số ?type=history từ URL
+        const { type } = req.query;
 
-        // GỌI SERVICE DUY NHẤT
-        // Truyền cờ isAdmin để Service tự biết đường lọc
         const orders = await orderService.getOrdersService({ 
             userId, 
-            isAdmin 
+            role: role as string,
+            type: type as 'active' | 'history' | undefined
         });
 
         res.status(200).json({ 
@@ -31,6 +29,45 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: "Lỗi hệ thống: " + error.message });
     }
 };
+
+export const getOrderByID = async (req: AuthRequest, res: Response) => {
+    try {
+        const { code } = req.params;
+        
+        // Lấy thông tin người đang xem từ Token
+        const userId = req.user?.sub;
+        const role = req.user?.role || 'USER';
+
+        if (!userId) {
+            return res.status(401).json({ message: "Vui lòng đăng nhập để tra cứu." });
+        }
+
+        // Gọi Service (Service sẽ tự lo việc check quyền)
+        const order = await orderService.getTrackingOrderService(code, userId, role as string);
+
+        res.status(200).json({ 
+            message: "Tra cứu thành công",
+            data: order 
+        });
+
+    } catch (error: any) {
+        console.error("Tracking Error:", error);
+
+        // Xử lý các lỗi Service ném ra
+        if (error.message === "ORDER_NOT_FOUND") {
+            return res.status(404).json({ message: "Không tìm thấy mã vận đơn này." });
+        }
+        
+        if (error.message === "FORBIDDEN") {
+            return res.status(403).json({ 
+                message: "Bạn không có quyền xem đơn hàng này (Không phải đơn của bạn)." 
+            });
+        }
+
+        res.status(500).json({ message: "Lỗi hệ thống" });
+    }
+};
+
 export const createOrder = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.sub;
@@ -89,6 +126,27 @@ export const autoAssign = async (req: Request, res: Response) => {
     }
 };
 
+export const assignOrder = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { tai_xe_id, phuong_tien_id } = req.body; // Lấy dữ liệu từ body
+
+        if (!tai_xe_id || !phuong_tien_id) {
+            return res.status(400).json({ message: "Thiếu thông tin tài xế hoặc xe" });
+        }
+
+        const updatedOrder = await orderService.assignOrderService(id, tai_xe_id, phuong_tien_id);
+
+        res.status(200).json({
+            message: "Phân công thành công",
+            data: updatedOrder
+        });
+    } catch (error: any) {
+        console.error("Assign Error:", error);
+        res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+    }
+};
+
 // Lấy danh sách task của tài xế
 export const getMyTasks = async (req: AuthRequest, res: Response) => {
     try {
@@ -135,5 +193,48 @@ export const getOrderByCode = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Tracking Error:", error);
         res.status(500).json({ message: "Lỗi hệ thống khi tra cứu đơn hàng" });
+    }
+};
+
+export const updateOrderStatus = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { trang_thai } = req.body;
+
+        // Gọi Service xử lý logic
+        await orderService.updateOrderStatusService(id, trang_thai);
+
+        res.status(200).json({ message: "Cập nhật trạng thái thành công" });
+
+    } catch (error: any) {
+        console.error("Update Status Error:", error);
+        
+        // Xử lý các lỗi cụ thể từ Service ném ra
+        if (error.message === "INVALID_STATUS") {
+            return res.status(400).json({ message: "Trạng thái không hợp lệ" });
+        }
+        if (error.message === "ORDER_NOT_FOUND") {
+            return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+        }
+
+        res.status(500).json({ message: "Lỗi hệ thống" });
+    }
+};
+
+export const getOrderById = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        
+        const order = await orderService.getOrderByIdService(id);
+
+        if (!order) {
+            return res.status(404).json({ message: "Đơn hàng không tồn tại" });
+        }
+
+        res.status(200).json({ data: order });
+
+    } catch (error) {
+        console.error("Get Order Detail Error:", error);
+        res.status(500).json({ message: "Lỗi hệ thống" });
     }
 };

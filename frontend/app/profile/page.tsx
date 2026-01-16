@@ -1,16 +1,15 @@
 "use client"
 
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Upload, User, Car, X, CheckCircle, FileImage, Loader2 } from "lucide-react" 
+import { ArrowLeft, Upload, User, Car, X, CheckCircle, FileImage, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useToast } from "@/hooks/use-toast" 
+import { useToast } from "@/hooks/use-toast"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 
@@ -26,19 +25,6 @@ export default function ProfilePage() {
     dia_chi: "",
   })
   const [preview, setPreview] = useState<string | undefined>()
-  
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        ho_ten: user.ho_ten || "",
-        email: user.email || "",
-        so_dien_thoai: user.so_dien_thoai || "",
-        dia_chi: user.dia_chi || "",
-      });
-      setPreview(user.anh_dai_dien);
-    }
-  }, [user]);
-
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -50,10 +36,21 @@ export default function ProfilePage() {
     kinh_nghiem: "",
     ngay_het_han: "",
   })
-  
   const [frontLicenseFile, setFrontLicenseFile] = useState<File | null>(null)
   const [backLicenseFile, setBackLicenseFile] = useState<File | null>(null)
   const [isSubmittingDriver, setIsSubmittingDriver] = useState(false)
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        ho_ten: user.ho_ten || "",
+        email: user.email || "",
+        so_dien_thoai: user.so_dien_thoai || "",
+        dia_chi: user.dia_chi || "",
+      });
+      setPreview(user.anh_dai_dien);
+    }
+  }, [user]);
 
   // --- HANDLE CÁ NHÂN ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,15 +68,22 @@ export default function ProfilePage() {
     }
   }
 
+  // HÀM SUBMIT PROFILE
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const token = localStorage.getItem("accessToken");
+    
+    // Lấy token
+    const token = localStorage.getItem("token_user"); 
     
     if(!token) {
-        logout(); // Không có token thì logout luôn cho chắc
+        toast({
+            variant: "destructive",
+            title: "Lỗi xác thực",
+            description: "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại."
+        })
         return
     }
-    
+
     try {
         const formDataPayload = new FormData();
         formDataPayload.append("ho_ten", formData.ho_ten);
@@ -90,19 +94,23 @@ export default function ProfilePage() {
           formDataPayload.append("avatar", avatarFile);
         }
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile`, {
-          method: "PUT",
-          headers: { "Authorization": `Bearer ${token}` },
-          body: formDataPayload,
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/profile`, {
+            method: "PUT",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+            body: formDataPayload,
         });
 
-        if (res.status === 401) {
-            logout();
-            return;
-        }
-
         const data = await res.json();
-        if(!res.ok) throw new Error(data.message);
+
+        if (!res.ok) {
+            if (res.status === 401) {
+                logout();
+                return;
+            }
+            throw new Error(data.message || "Lỗi cập nhật");
+        }
 
         updateProfile(data.user);
 
@@ -113,10 +121,11 @@ export default function ProfilePage() {
         })
 
     } catch (error:any) {
+        console.error("Lỗi:", error);
         toast({
             variant: "destructive",
             title: "Cập nhật thất bại",
-            description: error.message || "Có lỗi xảy ra, vui lòng thử lại."
+            description: error.message || "Có lỗi xảy ra."
         })
     }
   }
@@ -136,21 +145,16 @@ export default function ProfilePage() {
 
   const handleDriverSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+    const token = localStorage.getItem("token_user");
+
     if (!frontLicenseFile || !backLicenseFile) {
-        toast({
-            variant: "destructive",
-            title: "Thiếu ảnh hồ sơ",
-            description: "Vui lòng tải lên đầy đủ: Mặt trước và Mặt sau Giấy phép lái xe."
-        })
+        toast({ variant: "destructive", title: "Thiếu ảnh hồ sơ", description: "Vui lòng tải lên đủ 2 mặt bằng lái." })
         return
     }
 
     setIsSubmittingDriver(true)
 
     try {
-        const token = localStorage.getItem("accessToken")
-        
         const formData = new FormData()
         formData.append("so_gplx", driverForm.so_gplx)
         formData.append("hang_bang", driverForm.hang_bang)
@@ -161,44 +165,34 @@ export default function ProfilePage() {
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers/register`, {
             method: "POST",
-            headers: {
-                "Authorization": `Bearer ${token}`
-            },
+            headers: { "Authorization": `Bearer ${token}` },
             body: formData
         })
-        if (res.status === 401) {
-            logout();
-            return;
-        }
 
         const data = await res.json()
 
         if (res.ok) {
             toast({
                 title: "Gửi hồ sơ thành công!",
-                description: "Hệ thống đã nhận được yêu cầu. Vui lòng chờ Admin xét duyệt.",
+                description: "Vui lòng chờ Admin xét duyệt.",
                 className: "bg-green-600 text-white border-none",
             })
-            
             setIsDriverModalOpen(false)
-            setFrontLicenseFile(null)
-            setBackLicenseFile(null)
+            // Reset form
+            setFrontLicenseFile(null); setBackLicenseFile(null);
             setDriverForm({ so_gplx: "", hang_bang: "B2", kinh_nghiem: "", ngay_het_han: "" })
         } else {
-            throw new Error(data.message || "Đăng ký thất bại")
+             if (res.status === 401) { logout(); return; }
+             throw new Error(data.message || "Đăng ký thất bại")
         }
     } catch (error: any) {
-        console.error("Lỗi:", error)
-        toast({
-            variant: "destructive",
-            title: "Gửi hồ sơ thất bại",
-            description: error.message
-        })
+        toast({ variant: "destructive", title: "Gửi hồ sơ thất bại", description: error.message })
     } finally {
         setIsSubmittingDriver(false)
     }
   }
 
+  // --- RENDER ---
   if (isLoading) return (
     <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -216,7 +210,6 @@ export default function ProfilePage() {
 
       <main className="flex-1 py-12 px-4 relative">
         <div className="max-w-2xl mx-auto">
-          {/* Nút quay lại */}
           <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
             <ArrowLeft className="h-4 w-4" /> Quay lại trang chủ
           </Link>
@@ -232,7 +225,10 @@ export default function ProfilePage() {
                 <form onSubmit={handleSubmit} className="space-y-8">
                   <div className="flex flex-col items-center space-y-4">
                     <div className="h-24 w-24 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border-2 relative group">
-                      {preview ? <img src={preview} alt="Avatar" className="h-full w-full object-cover" /> : <User className="h-10 w-10 text-slate-400" />}
+                      {preview ? 
+                        <img src={preview} alt="Avatar" className="h-full w-full object-cover" /> 
+                        : <User className="h-10 w-10 text-slate-400" />
+                      }
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                           <Upload className="text-white h-6 w-6" />
                       </div>
@@ -295,7 +291,7 @@ export default function ProfilePage() {
           </motion.div>
         </div>
 
-        {/* --- MODAL ĐĂNG KÝ --- */}
+        {/* --- MODAL ĐĂNG KÝ TÀI XẾ --- */}
         <AnimatePresence>
           {isDriverModalOpen && (
             <motion.div 
@@ -345,7 +341,6 @@ export default function ProfilePage() {
                     <div className="space-y-3 pt-2">
                       <Label className="text-base font-semibold">Ảnh chụp bằng lái</Label>
                       <div className="grid grid-cols-2 gap-4">
-                          {/* INPUT MẶT TRƯỚC */}
                           <div className="space-y-2">
                               <Label className="text-xs text-muted-foreground">Mặt trước</Label>
                               <div className={`border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center relative cursor-pointer hover:bg-slate-50 transition-colors ${frontLicenseFile ? 'border-green-500 bg-green-50' : 'border-slate-300'}`}>
@@ -356,15 +351,10 @@ export default function ProfilePage() {
                                           <p className="text-xs text-green-700 truncate max-w-full">{frontLicenseFile.name}</p>
                                       </div>
                                   ) : (
-                                      <>
-                                          <Upload className="h-6 w-6 text-slate-400 mb-1" />
-                                          <span className="text-xs text-slate-500">Tải lên</span>
-                                      </>
+                                      <> <Upload className="h-6 w-6 text-slate-400 mb-1" /> <span className="text-xs text-slate-500">Tải lên</span> </>
                                   )}
                               </div>
                           </div>
-
-                          {/* INPUT MẶT SAU */}
                           <div className="space-y-2">
                               <Label className="text-xs text-muted-foreground">Mặt sau</Label>
                               <div className={`border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center relative cursor-pointer hover:bg-slate-50 transition-colors ${backLicenseFile ? 'border-green-500 bg-green-50' : 'border-slate-300'}`}>
@@ -375,10 +365,7 @@ export default function ProfilePage() {
                                           <p className="text-xs text-green-700 truncate max-w-full">{backLicenseFile.name}</p>
                                       </div>
                                   ) : (
-                                      <>
-                                          <Upload className="h-6 w-6 text-slate-400 mb-1" />
-                                          <span className="text-xs text-slate-500">Tải lên</span>
-                                      </>
+                                      <> <Upload className="h-6 w-6 text-slate-400 mb-1" /> <span className="text-xs text-slate-500">Tải lên</span> </>
                                   )}
                               </div>
                           </div>
@@ -390,11 +377,7 @@ export default function ProfilePage() {
                 <div className="p-5 border-t bg-slate-50 flex gap-3 justify-end">
                   <Button variant="outline" onClick={() => setIsDriverModalOpen(false)}>Hủy bỏ</Button>
                   <Button type="submit" form="driver-form" disabled={isSubmittingDriver}>
-                      {isSubmittingDriver ? (
-                          <div className="flex items-center gap-2">
-                               <Loader2 className="h-4 w-4 animate-spin" /> Đang gửi...
-                          </div>
-                      ) : "Gửi hồ sơ"}
+                      {isSubmittingDriver ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Đang gửi...</> : "Gửi hồ sơ"}
                   </Button>
                 </div>
               </motion.div>
