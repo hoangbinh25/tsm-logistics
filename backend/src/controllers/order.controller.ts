@@ -67,55 +67,73 @@ export const getOrderByID = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: "Lỗi hệ thống" });
     }
 };
-
 export const createOrder = async (req: AuthRequest, res: Response) => {
     try {
+        // 1. Lấy dữ liệu đầu vào
         const userId = req.user?.sub;
-        console.log("userID: ", userId)
-        const userEmail = req.user?.email; 
+        const userEmail = req.user?.email;
+        const body = req.body;
 
-        if (!userId) return res.status(401).json({ message: "Chưa xác thực token thành công" });
+        if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-        const { senderInfo, receiverInfo, warehouseId, serviceId, paymentMethod, note, items } = req.body;
-
-        // Validate cơ bản
-        if (!receiverInfo?.phone || !warehouseId || !items?.length || !serviceId) {
-            return res.status(400).json({ message: "Thiếu thông tin bắt buộc (Người nhận, Kho, Dịch vụ, Hàng hóa)" });
+        // Validate cơ bản (Có thể tách ra middleware riêng nếu muốn gọn nữa)
+        if (!body.receiverInfo?.phone || !body.warehouseId || !body.serviceId) {
+            return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
         }
 
-        // Tạo đơn hàng (Logic cũ)
-        const newOrder = await orderService.createOrderService({
+        // 2. Gọi Service xử lý TẤT CẢ nghiệp vụ
+        const result = await orderService.createOrderService({
             userId,
-            senderAddress: senderInfo?.address || "",
-            receiverInfo,
-            warehouseId,
-            serviceId,
-            paymentMethod,
-            note,
-            items
+            userEmail,
+            senderAddress: body.senderInfo?.address || "",
+            ...body
         });
 
-        if (userEmail) {
-            // Không dùng 'await' ở đây để Client không phải chờ gửi mail xong mới thấy thông báo
-            sendOrderConfirmationEmail(userEmail, {
-                ma_don_hang: newOrder.ma_don_hang,
-                receiverName: receiverInfo.name,
-                receiverPhone: receiverInfo.phone,
-                tong_thanh_toan: newOrder.tong_thanh_toan,
-                hinh_thuc_thanh_toan: newOrder.hinh_thuc_thanh_toan
-            }).catch(err => console.error("Lỗi gửi mail background:", err));
-        }
-
+        // 3. Trả về kết quả
         res.status(201).json({
             message: "Tạo đơn hàng thành công",
-            data: newOrder
+            data: result.order,        // Đơn hàng đã tạo
+            paymentUrl: result.paymentUrl // Link thanh toán (nếu có)
         });
 
     } catch (error: any) {
-        console.error("Create Order Error:", error);
-        res.status(500).json({ message: error.message || "Lỗi máy chủ nội bộ" });
+        console.error("Create Order Controller Error:", error);
+        res.status(500).json({ message: error.message || "Lỗi server" });
     }
 };
+
+// Lấy lại link Payment
+export const getPaymentLink = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        
+        // Gọi Service
+        const paymentUrl = await orderService.getPaymentLinkService(id);
+
+        res.status(200).json({ paymentUrl });
+    } catch (error: any) {
+        console.error("Get Payment Link Error:", error);
+        // Trả về 400 hoặc 404 tuỳ message, ở đây mình để 400 chung
+        res.status(400).json({ message: error.message || "Lỗi lấy link thanh toán" });
+    }
+};
+
+// Đổi sang COD
+export const switchToCOD = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Gọi Service
+        await orderService.switchOrderToCODService(id);
+
+        res.status(200).json({ 
+            message: "Đã chuyển sang thanh toán khi nhận hàng (COD)" 
+        });
+    } catch (error: any) {
+        console.error("Switch COD Error:", error);
+        res.status(400).json({ message: error.message || "Lỗi chuyển đổi phương thức" });
+    }
+}
 
 export const autoAssign = async (req: Request, res: Response) => {
     try {

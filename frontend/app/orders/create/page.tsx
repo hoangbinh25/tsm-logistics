@@ -113,13 +113,23 @@ export default function CreateOrderPage() {
         const data = await res.json()
 
         if(res.ok) {
-            toast({ 
-                title: "Tạo đơn thành công!", 
-                description: `Mã vận đơn: ${data.data.ma_don_hang}. Đang gửi mail xác nhận...`,
-                duration: 5000,
-                className: "bg-green-50 border-green-200 text-green-900"
-            })
-            router.push("/orders") 
+            if (data.paymentUrl) {
+                 toast({ 
+                    title: "Đang chuyển hướng...", 
+                    description: `Vui lòng thanh toán qua cổng ${paymentMethod}`,
+                    className: "bg-blue-50 text-blue-900"
+                })
+                // Chuyển hướng người dùng sang trang thanh toán của Momo/VNPay
+                window.location.href = data.paymentUrl;
+            } else {
+                toast({ 
+                    title: "Tạo đơn thành công!", 
+                    description: `Mã vận đơn: ${data.data.ma_don_hang}. Đang gửi mail xác nhận...`,
+                    duration: 5000,
+                    className: "bg-green-50 border-green-200 text-green-900"
+                })
+                router.push("/orders") 
+            }
         } else {
             throw new Error(data.message || "Có lỗi xảy ra")
         }
@@ -195,9 +205,15 @@ export default function CreateOrderPage() {
                                 <SelectContent>
                                     <SelectItem value="TIEN_MAT">Người gửi trả tiền mặt</SelectItem>
                                     <SelectItem value="COD">Thu hộ (COD)</SelectItem>
-                                    <SelectItem value="CHUYEN_KHOAN">Chuyển khoản</SelectItem>
+                                    <SelectItem value="MOMO" className="text-pink-600 font-medium">🌸 Ví MoMo</SelectItem>
+                                    <SelectItem value="VNPAY" className="text-blue-600 font-medium">💳 VNPAY-QR</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <div className="mt-4 p-3 bg-slate-50 rounded text-sm text-muted-foreground border">
+                                {paymentMethod === 'MOMO' && "Bạn sẽ được chuyển hướng sang cổng thanh toán MoMo (Môi trường Test)."}
+                                {paymentMethod === 'VNPAY' && "Bạn sẽ được chuyển hướng sang cổng thanh toán VNPAY (Môi trường Test)."}
+                                {(paymentMethod === 'COD' || paymentMethod === 'TIEN_MAT') && "Tạo đơn hàng ngay lập tức."}
+                            </div>
                          </CardContent>
                     </Card>
                 </div>
@@ -232,11 +248,12 @@ export default function CreateOrderPage() {
                             </div>
                         </CardContent>
                     </Card>
-        
                     <Card className="bg-slate-50">
                         <CardContent className="pt-6">
                             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting || isLoadingData}>
-                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Đang xử lý...</> : "Tạo đơn ngay"}
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Đang xử lý...</> : 
+                                    (paymentMethod === 'MOMO' || paymentMethod === 'VNPAY') ? "Tiếp tục thanh toán »" : "Tạo đơn ngay"
+                                }
                             </Button>
                         </CardContent>
                     </Card>

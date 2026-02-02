@@ -41,6 +41,8 @@ enum TrangThaiDonHang {
 enum HinhThucThanhToan {
   COD
   ONLINE
+  MOMO
+  VNPAY
 }
 
 enum TrangThaiPhuongTien {
