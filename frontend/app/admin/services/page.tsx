@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Search, Plus, MoreHorizontal, Edit, Trash2, Container, DollarSign 
+import {
+  Search, Plus, MoreHorizontal, Edit, Trash2, Container, DollarSign
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select"
 
 // Helper format tiền
-const formatVND = (value: any) => 
+const formatVND = (value: any) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value))
 
 export default function ServicesPage() {
@@ -47,7 +47,7 @@ export default function ServicesPage() {
 
   // 1. Fetch Services
   const fetchServices = async () => {
-    const token = localStorage.getItem("accessToken")
+    const token = sessionStorage.getItem("accessToken")
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services`, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -87,8 +87,8 @@ export default function ServicesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    const token = localStorage.getItem("accessToken")
-    const url = currentService 
+    const token = sessionStorage.getItem("accessToken")
+    const url = currentService
       ? `${process.env.NEXT_PUBLIC_API_URL}/services/${currentService.id}`
       : `${process.env.NEXT_PUBLIC_API_URL}/services`
     const method = currentService ? "PUT" : "POST"
@@ -112,7 +112,7 @@ export default function ServicesPage() {
 
   // 4. Delete
   const handleDelete = async () => {
-    const token = localStorage.getItem("accessToken")
+    const token = sessionStorage.getItem("accessToken")
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/${currentService.id}`, {
         method: "DELETE",
@@ -128,12 +128,12 @@ export default function ServicesPage() {
 
   // Render Badge
   const getStatusBadge = (status: string) => {
-    return status === 'HOAT_DONG' 
-      ? <Badge className="bg-emerald-600">Hoạt động</Badge> 
+    return status === 'HOAT_DONG'
+      ? <Badge className="bg-emerald-600">Hoạt động</Badge>
       : <Badge variant="destructive">Tạm dừng</Badge>
   }
 
-  const filteredData = services.filter(s => 
+  const filteredData = services.filter(s =>
     s.ten_dich_vu.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.ma_dich_vu.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -146,28 +146,28 @@ export default function ServicesPage() {
           <p className="text-sm text-muted-foreground">Thiết lập giá cước và các loại hình dịch vụ</p>
         </div>
         <Button onClick={openAddModal} className="gap-2 bg-primary">
-            <Plus className="w-4 h-4"/> Thêm dịch vụ
+          <Plus className="w-4 h-4" /> Thêm dịch vụ
         </Button>
       </div>
 
       {/* Cards thống kê nhanh */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-4 border rounded-xl bg-card flex items-center gap-4">
-             <div className="p-3 bg-blue-100 rounded-lg"><Container className="w-6 h-6 text-blue-600"/></div>
-             <div><p className="text-sm text-muted-foreground">Tổng dịch vụ</p><h3 className="text-2xl font-bold">{services.length}</h3></div>
+          <div className="p-3 bg-blue-100 rounded-lg"><Container className="w-6 h-6 text-blue-600" /></div>
+          <div><p className="text-sm text-muted-foreground">Tổng dịch vụ</p><h3 className="text-2xl font-bold">{services.length}</h3></div>
         </div>
         <div className="p-4 border rounded-xl bg-card flex items-center gap-4">
-             <div className="p-3 bg-emerald-100 rounded-lg"><DollarSign className="w-6 h-6 text-emerald-600"/></div>
-             <div><p className="text-sm text-muted-foreground">Đang hoạt động</p><h3 className="text-2xl font-bold">{services.filter(s=>s.trang_thai==='HOAT_DONG').length}</h3></div>
+          <div className="p-3 bg-emerald-100 rounded-lg"><DollarSign className="w-6 h-6 text-emerald-600" /></div>
+          <div><p className="text-sm text-muted-foreground">Đang hoạt động</p><h3 className="text-2xl font-bold">{services.filter(s => s.trang_thai === 'HOAT_DONG').length}</h3></div>
         </div>
       </div>
 
       <div className="space-y-4">
         <div className="flex items-center gap-4 max-w-sm">
-           <div className="relative w-full">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Tìm tên, mã dịch vụ..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-           </div>
+          <div className="relative w-full">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Tìm tên, mã dịch vụ..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
         </div>
 
         <div className="border rounded-lg overflow-hidden bg-card">
@@ -197,11 +197,11 @@ export default function ServicesPage() {
                   <td className="px-6 py-4">{getStatusBadge(s.trang_thai)}</td>
                   <td className="px-6 py-4 text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4"/></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openEditModal(s)}><Edit className="w-4 h-4 mr-2"/> Sửa thông tin</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={() => { setCurrentService(s); setIsDeleteAlertOpen(true) }}><Trash2 className="w-4 h-4 mr-2"/> Xóa dịch vụ</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEditModal(s)}><Edit className="w-4 h-4 mr-2" /> Sửa thông tin</DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={() => { setCurrentService(s); setIsDeleteAlertOpen(true) }}><Trash2 className="w-4 h-4 mr-2" /> Xóa dịch vụ</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -215,77 +215,77 @@ export default function ServicesPage() {
       {/* MODAL THÊM / SỬA */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-2xl">
-           <DialogHeader><DialogTitle>{currentService ? "Sửa Dịch vụ" : "Thêm Dịch vụ mới"}</DialogTitle></DialogHeader>
-           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Mã dịch vụ</Label>
-                    <Input required placeholder="VD: DV-HL-01" value={formData.ma_dich_vu} onChange={e=>setFormData({...formData, ma_dich_vu: e.target.value})} />
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Tên dịch vụ</Label>
-                    <Input required placeholder="Hỏa tốc nội thành..." value={formData.ten_dich_vu} onChange={e=>setFormData({...formData, ten_dich_vu: e.target.value})} />
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Loại hình</Label>
-                    <Select value={formData.loai_dich_vu} onValueChange={(val)=>setFormData({...formData, loai_dich_vu: val})}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="NOI_TINH">Nội tỉnh</SelectItem>
-                            <SelectItem value="LIEN_TINH">Liên tỉnh</SelectItem>
-                        </SelectContent>
-                    </Select>
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Trạng thái</Label>
-                    <Select value={formData.trang_thai} onValueChange={(val)=>setFormData({...formData, trang_thai: val})}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
-                            <SelectItem value="TAM_DUNG">Tạm dừng</SelectItem>
-                            <SelectItem value="NGUNG_CUNG_CAP">Ngừng cung cấp</SelectItem>
-                        </SelectContent>
-                    </Select>
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Giá cơ bản (VNĐ)</Label>
-                    <Input type="number" required value={formData.gia_co_ban} onChange={e=>setFormData({...formData, gia_co_ban: e.target.value})} />
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Đơn vị tính</Label>
-                    <Input placeholder="kg, km, m3..." value={formData.don_vi_tinh} onChange={e=>setFormData({...formData, don_vi_tinh: e.target.value})} />
-                 </div>
+          <DialogHeader><DialogTitle>{currentService ? "Sửa Dịch vụ" : "Thêm Dịch vụ mới"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Mã dịch vụ</Label>
+                <Input required placeholder="VD: DV-HL-01" value={formData.ma_dich_vu} onChange={e => setFormData({ ...formData, ma_dich_vu: e.target.value })} />
               </div>
               <div className="space-y-2">
-                  <Label>Mô tả dịch vụ</Label>
-                  <Textarea value={formData.mo_ta} onChange={e=>setFormData({...formData, mo_ta: e.target.value})} />
+                <Label>Tên dịch vụ</Label>
+                <Input required placeholder="Hỏa tốc nội thành..." value={formData.ten_dich_vu} onChange={e => setFormData({ ...formData, ten_dich_vu: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Loại hình</Label>
+                <Select value={formData.loai_dich_vu} onValueChange={(val) => setFormData({ ...formData, loai_dich_vu: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOI_TINH">Nội tỉnh</SelectItem>
+                    <SelectItem value="LIEN_TINH">Liên tỉnh</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                  <Label>Chính sách giá (Ghi chú)</Label>
-                  <Textarea placeholder="VD: Phụ thu 20% giờ cao điểm..." value={formData.chinh_sach_gia} onChange={e=>setFormData({...formData, chinh_sach_gia: e.target.value})} />
+                <Label>Trạng thái</Label>
+                <Select value={formData.trang_thai} onValueChange={(val) => setFormData({ ...formData, trang_thai: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
+                    <SelectItem value="TAM_DUNG">Tạm dừng</SelectItem>
+                    <SelectItem value="NGUNG_CUNG_CAP">Ngừng cung cấp</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <DialogFooter>
-                 <Button type="button" variant="outline" onClick={()=>setIsModalOpen(false)}>Hủy</Button>
-                 <Button type="submit" disabled={isLoading}>{isLoading ? "Đang lưu..." : "Lưu thông tin"}</Button>
-              </DialogFooter>
-           </form>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Giá cơ bản (VNĐ)</Label>
+                <Input type="number" required value={formData.gia_co_ban} onChange={e => setFormData({ ...formData, gia_co_ban: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Đơn vị tính</Label>
+                <Input placeholder="kg, km, m3..." value={formData.don_vi_tinh} onChange={e => setFormData({ ...formData, don_vi_tinh: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Mô tả dịch vụ</Label>
+              <Textarea value={formData.mo_ta} onChange={e => setFormData({ ...formData, mo_ta: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Chính sách giá (Ghi chú)</Label>
+              <Textarea placeholder="VD: Phụ thu 20% giờ cao điểm..." value={formData.chinh_sach_gia} onChange={e => setFormData({ ...formData, chinh_sach_gia: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+              <Button type="submit" disabled={isLoading}>{isLoading ? "Đang lưu..." : "Lưu thông tin"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       {/* ALERT DELETE */}
       <Dialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-         <DialogContent>
-            <DialogHeader><DialogTitle>Xóa dịch vụ?</DialogTitle></DialogHeader>
-            <p>Bạn có chắc muốn xóa dịch vụ <strong>{currentService?.ten_dich_vu}</strong>?</p>
-            <DialogFooter>
-                <Button variant="outline" onClick={()=>setIsDeleteAlertOpen(false)}>Hủy</Button>
-                <Button variant="destructive" onClick={handleDelete}>Xóa ngay</Button>
-            </DialogFooter>
-         </DialogContent>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Xóa dịch vụ?</DialogTitle></DialogHeader>
+          <p>Bạn có chắc muốn xóa dịch vụ <strong>{currentService?.ten_dich_vu}</strong>?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteAlertOpen(false)}>Hủy</Button>
+            <Button variant="destructive" onClick={handleDelete}>Xóa ngay</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </main>
   )

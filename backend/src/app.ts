@@ -10,6 +10,7 @@ app.use(express.json()); // Parse JSON request bodies
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/health", (_, res) => res.json({ status: "OK" }))
+app.get("/test-route", (_, res) => res.json({ message: "API is working" }))
 
 app.use("/", routers);
 

@@ -8,20 +8,20 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
         const userId = req.user?.sub;
         if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
 
-        const role = req.user?.role || 'USER'; 
-        
+        const role = req.user?.role || 'USER';
+
         // Lấy tham số ?type=history từ URL
         const { type } = req.query;
 
-        const orders = await orderService.getOrdersService({ 
-            userId, 
+        const orders = await orderService.getOrdersService({
+            userId,
             role: role as string,
             type: type as 'active' | 'history' | undefined
         });
 
-        res.status(200).json({ 
-            message: "Lấy danh sách thành công", 
-            data: orders 
+        res.status(200).json({
+            message: "Lấy danh sách thành công",
+            data: orders
         });
 
     } catch (error: any) {
@@ -33,7 +33,7 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
 export const getOrderByID = async (req: AuthRequest, res: Response) => {
     try {
         const { code } = req.params;
-        
+
         // Lấy thông tin người đang xem từ Token
         const userId = req.user?.sub;
         const role = req.user?.role || 'USER';
@@ -45,9 +45,9 @@ export const getOrderByID = async (req: AuthRequest, res: Response) => {
         // Gọi Service (Service sẽ tự lo việc check quyền)
         const order = await orderService.getTrackingOrderService(code, userId, role as string);
 
-        res.status(200).json({ 
+        res.status(200).json({
             message: "Tra cứu thành công",
-            data: order 
+            data: order
         });
 
     } catch (error: any) {
@@ -57,10 +57,10 @@ export const getOrderByID = async (req: AuthRequest, res: Response) => {
         if (error.message === "ORDER_NOT_FOUND") {
             return res.status(404).json({ message: "Không tìm thấy mã vận đơn này." });
         }
-        
+
         if (error.message === "FORBIDDEN") {
-            return res.status(403).json({ 
-                message: "Bạn không có quyền xem đơn hàng này (Không phải đơn của bạn)." 
+            return res.status(403).json({
+                message: "Bạn không có quyền xem đơn hàng này (Không phải đơn của bạn)."
             });
         }
 
@@ -92,8 +92,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         // 3. Trả về kết quả
         res.status(201).json({
             message: "Tạo đơn hàng thành công",
-            data: result.order,        // Đơn hàng đã tạo
-            paymentUrl: result.paymentUrl // Link thanh toán (nếu có)
+            data: result.order        // Đơn hàng đã tạo
         });
 
     } catch (error: any) {
@@ -102,38 +101,6 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// Lấy lại link Payment
-export const getPaymentLink = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        
-        // Gọi Service
-        const paymentUrl = await orderService.getPaymentLinkService(id);
-
-        res.status(200).json({ paymentUrl });
-    } catch (error: any) {
-        console.error("Get Payment Link Error:", error);
-        // Trả về 400 hoặc 404 tuỳ message, ở đây mình để 400 chung
-        res.status(400).json({ message: error.message || "Lỗi lấy link thanh toán" });
-    }
-};
-
-// Đổi sang COD
-export const switchToCOD = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-
-        // Gọi Service
-        await orderService.switchOrderToCODService(id);
-
-        res.status(200).json({ 
-            message: "Đã chuyển sang thanh toán khi nhận hàng (COD)" 
-        });
-    } catch (error: any) {
-        console.error("Switch COD Error:", error);
-        res.status(400).json({ message: error.message || "Lỗi chuyển đổi phương thức" });
-    }
-}
 
 export const autoAssign = async (req: Request, res: Response) => {
     try {
@@ -168,7 +135,7 @@ export const assignOrder = async (req: AuthRequest, res: Response) => {
 // Lấy danh sách task của tài xế
 export const getMyTasks = async (req: AuthRequest, res: Response) => {
     try {
-        const userId = req.user?.sub; 
+        const userId = req.user?.sub;
 
         if (!userId) {
             return res.status(401).json({ message: "Không xác định được danh tính" });
@@ -176,9 +143,9 @@ export const getMyTasks = async (req: AuthRequest, res: Response) => {
 
         const tasks = await orderService.getDriverTasksService(userId);
 
-        res.status(200).json({ 
+        res.status(200).json({
             message: "Lấy danh sách công việc thành công",
-            data: tasks 
+            data: tasks
         });
 
     } catch (error: any) {
@@ -203,9 +170,9 @@ export const getOrderByCode = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Không tìm thấy đơn hàng hoặc mã vận đơn không đúng." });
         }
 
-        res.status(200).json({ 
+        res.status(200).json({
             message: "Tra cứu thành công",
-            data: order 
+            data: order
         });
 
     } catch (error) {
@@ -226,7 +193,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         console.error("Update Status Error:", error);
-        
+
         // Xử lý các lỗi cụ thể từ Service ném ra
         if (error.message === "INVALID_STATUS") {
             return res.status(400).json({ message: "Trạng thái không hợp lệ" });
@@ -242,7 +209,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
 export const getOrderById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        
+
         const order = await orderService.getOrderByIdService(id);
 
         if (!order) {

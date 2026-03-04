@@ -4,7 +4,7 @@ import prisma from '../config/prisma';
 export const startOrderCleanupJob = () => {
     cron.schedule('* * * * *', async () => {
         console.log('Đang quét đơn hàng quá hạn thanh toán...');
-        
+
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000); // 10 phút trước
 
         try {
@@ -12,7 +12,7 @@ export const startOrderCleanupJob = () => {
             const expiredOrders = await prisma.donHang.updateMany({
                 where: {
                     trang_thai_don_hang: 'TAO_MOI',
-                    hinh_thuc_thanh_toan: { in: ['MOMO', 'VNPAY'] }, // Chỉ áp dụng cho đơn Online
+                    hinh_thuc_thanh_toan: 'ONLINE', // Chỉ áp dụng cho đơn Online
                     thoi_gian_tao: { lt: tenMinutesAgo }
                 },
                 data: {

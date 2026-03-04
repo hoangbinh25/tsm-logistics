@@ -40,9 +40,6 @@ enum TrangThaiDonHang {
 
 enum HinhThucThanhToan {
   COD
-  ONLINE
-  MOMO
-  VNPAY
 }
 
 enum TrangThaiPhuongTien {
@@ -84,13 +81,6 @@ enum TrangThaiPhanCong {
   HUY
 }
 
-enum TrangThaiThanhToan {
-  PENDING
-  SUCCESS
-  FAILED
-  CANCELLED
-  REFUNDED
-}
 
 enum TrangThaiDuyetTaiXe {
   PENDING
@@ -113,6 +103,23 @@ enum TrangThaiGiayTo {
   ACCEPTED
   REJECTED
 }
+
+enum LoaiSuCo {
+  HU_HONG_XE
+  TAI_NAN
+  KET_XE
+  HANG_HOA_HU_HONG
+  SU_CO_SUC_KHOE
+  KHAC
+}
+
+enum TrangThaiSuCo {
+  MOI
+  DANG_XU_LY
+  DA_XU_LY
+  HUY
+}
+
 
 model NguoiDung {
   id                   String            @id @db.Char(26)
@@ -164,6 +171,7 @@ model TaiXeProfile {
   nguoi_dung             NguoiDung         @relation(fields: [nguoi_dung_id], references: [id])
   giay_to                TaiXeGiayTo[]
   don_hang_nhan   DonHang[]
+  su_co           SuCo[]
 }
 
 model TaiXeGiayTo {
@@ -202,6 +210,7 @@ model DonHang {
   thoi_gian_du_kien_giao DateTime?
   thoi_gian_hoan_thanh   DateTime?
   ghi_chu                String?
+  ma_van_don_ngoai       String?           // Mã vận đơn từ GHTK, GHN, v.v.
   thoi_gian_tao          DateTime          @default(now())
   thoi_gian_cap_nhat     DateTime          @updatedAt
 
@@ -213,6 +222,7 @@ model DonHang {
   chi_tiet               ChiTietDonHang[]
   thanh_toan             ThanhToan[]
   phan_cong              PhanCongDonHang[]
+  su_co                  SuCo[]
 
   tai_xe_id       String?  // Cho phép null (vì đơn mới chưa có tài xế)
   tai_xe          TaiXeProfile? @relation(fields: [tai_xe_id], references: [id])
@@ -281,6 +291,10 @@ model PhuongTien {
   trang_thai            TrangThaiPhuongTien
   ngay_dang_kiem         DateTime            @db.Date
   ngay_het_han_dang_kiem DateTime            @db.Date
+  so_km_da_di            Int                 @default(0)
+  ngay_bao_duong_cuoi    DateTime?           @db.Date
+  dinh_ky_bao_duong_km   Int                 @default(5000)
+  vi_tri_hien_tai        String?             @db.VarChar(255)
   ghi_chu               String?
   thoi_gian_tao          DateTime            @default(now())
   thoi_gian_cap_nhat     DateTime            @updatedAt
@@ -288,6 +302,7 @@ model PhuongTien {
   don_hang        DonHang[]
 
   phan_cong             PhanCongDonHang[]   @relation("PhanCong_PhuongTien")
+  su_co                 SuCo[]
 }
 
 model KhoHang {
@@ -366,4 +381,27 @@ model ThongBao {
   thoi_gian_tao   DateTime  @default(now())
 
   nguoi_nhan      NguoiDung @relation(fields: [nguoi_nhan_id], references: [id])
+}
+
+model SuCo {
+  id                String          @id @db.Char(26)
+  tai_xe_id         String          @db.Char(26)
+  don_hang_id       String?         @db.Char(26)
+  phuong_tien_id    String?         @db.Char(26)
+  loai_su_co        LoaiSuCo
+  mo_ta             String          @db.Text
+  vi_tri            String?         
+  hinh_anh          String?         
+  trang_thai        TrangThaiSuCo   @default(MOI)
+  ghi_chu_quan_ly   String?         @db.Text
+  thoi_gian_tao     DateTime        @default(now())
+  thoi_gian_cap_nhat DateTime       @updatedAt
+
+  tai_xe            TaiXeProfile    @relation(fields: [tai_xe_id], references: [id])
+  don_hang          DonHang?        @relation(fields: [don_hang_id], references: [id])
+  phuong_tien       PhuongTien?     @relation(fields: [phuong_tien_id], references: [id])
+
+  @@index([tai_xe_id])
+  @@index([don_hang_id])
+  @@index([phuong_tien_id])
 }

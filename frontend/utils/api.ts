@@ -1,6 +1,6 @@
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  // 1. Lấy token từ LocalStorage
-  const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+  // 1. Lấy token từ sessionStorage
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem("accessToken") : null;
 
   // 2. Gộp Header
   const headers = {
@@ -19,9 +19,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     if (response.status === 401) {
       if (typeof window !== 'undefined') {
         // Xóa token cũ
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        
+        sessionStorage.removeItem("accessToken");
+        sessionStorage.removeItem("user");
+
         window.location.href = "/login";
         return Promise.reject("Phiên đăng nhập hết hạn");
       }

@@ -71,62 +71,62 @@ export default function ProfilePage() {
   // HÀM SUBMIT PROFILE
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Lấy token
-    const token = localStorage.getItem("token_user"); 
-    
-    if(!token) {
-        toast({
-            variant: "destructive",
-            title: "Lỗi xác thực",
-            description: "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại."
-        })
-        return
+    const token = sessionStorage.getItem("accessToken");
+
+    if (!token) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi xác thực",
+        description: "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại."
+      })
+      return
     }
 
     try {
-        const formDataPayload = new FormData();
-        formDataPayload.append("ho_ten", formData.ho_ten);
-        formDataPayload.append("so_dien_thoai", formData.so_dien_thoai);
-        formDataPayload.append("dia_chi", formData.dia_chi);
+      const formDataPayload = new FormData();
+      formDataPayload.append("ho_ten", formData.ho_ten);
+      formDataPayload.append("so_dien_thoai", formData.so_dien_thoai);
+      formDataPayload.append("dia_chi", formData.dia_chi);
 
-        if(avatarFile) {
-          formDataPayload.append("avatar", avatarFile);
+      if (avatarFile) {
+        formDataPayload.append("avatar", avatarFile);
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+        body: formDataPayload,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          logout();
+          return;
         }
+        throw new Error(data.message || "Lỗi cập nhật");
+      }
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/profile`, {
-            method: "PUT",
-            headers: {
-                "Authorization": `Bearer ${token}`,
-            },
-            body: formDataPayload,
-        });
+      updateProfile(data.user);
 
-        const data = await res.json();
+      toast({
+        title: "Cập nhật thành công!",
+        description: "Thông tin hồ sơ của bạn đã được lưu.",
+        className: "bg-green-600 text-white border-none",
+      })
 
-        if (!res.ok) {
-            if (res.status === 401) {
-                logout();
-                return;
-            }
-            throw new Error(data.message || "Lỗi cập nhật");
-        }
-
-        updateProfile(data.user);
-
-        toast({
-            title: "Cập nhật thành công!",
-            description: "Thông tin hồ sơ của bạn đã được lưu.",
-            className: "bg-green-600 text-white border-none",
-        })
-
-    } catch (error:any) {
-        console.error("Lỗi:", error);
-        toast({
-            variant: "destructive",
-            title: "Cập nhật thất bại",
-            description: error.message || "Có lỗi xảy ra."
-        })
+    } catch (error: any) {
+      console.error("Lỗi:", error);
+      toast({
+        variant: "destructive",
+        title: "Cập nhật thất bại",
+        description: error.message || "Có lỗi xảy ra."
+      })
     }
   }
 
@@ -138,70 +138,70 @@ export default function ProfilePage() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'FRONT' | 'BACK') => {
     if (e.target.files && e.target.files[0]) {
-        if (type === 'FRONT') setFrontLicenseFile(e.target.files[0])
-        else setBackLicenseFile(e.target.files[0])
+      if (type === 'FRONT') setFrontLicenseFile(e.target.files[0])
+      else setBackLicenseFile(e.target.files[0])
     }
   }
 
   const handleDriverSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const token = localStorage.getItem("token_user");
+    const token = sessionStorage.getItem("accessToken");
 
     if (!frontLicenseFile || !backLicenseFile) {
-        toast({ variant: "destructive", title: "Thiếu ảnh hồ sơ", description: "Vui lòng tải lên đủ 2 mặt bằng lái." })
-        return
+      toast({ variant: "destructive", title: "Thiếu ảnh hồ sơ", description: "Vui lòng tải lên đủ 2 mặt bằng lái." })
+      return
     }
 
     setIsSubmittingDriver(true)
 
     try {
-        const formData = new FormData()
-        formData.append("so_gplx", driverForm.so_gplx)
-        formData.append("hang_bang", driverForm.hang_bang)
-        formData.append("kinh_nghiem", driverForm.kinh_nghiem)
-        formData.append("ngay_het_han", driverForm.ngay_het_han)
-        formData.append("licenseImages", frontLicenseFile)
-        formData.append("licenseImages", backLicenseFile)
+      const formData = new FormData()
+      formData.append("so_gplx", driverForm.so_gplx)
+      formData.append("hang_bang", driverForm.hang_bang)
+      formData.append("kinh_nghiem", driverForm.kinh_nghiem)
+      formData.append("ngay_het_han", driverForm.ngay_het_han)
+      formData.append("licenseImages", frontLicenseFile)
+      formData.append("licenseImages", backLicenseFile)
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers/register`, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${token}` },
-            body: formData
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers/register`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        toast({
+          title: "Gửi hồ sơ thành công!",
+          description: "Vui lòng chờ Admin xét duyệt.",
+          className: "bg-green-600 text-white border-none",
         })
-
-        const data = await res.json()
-
-        if (res.ok) {
-            toast({
-                title: "Gửi hồ sơ thành công!",
-                description: "Vui lòng chờ Admin xét duyệt.",
-                className: "bg-green-600 text-white border-none",
-            })
-            setIsDriverModalOpen(false)
-            // Reset form
-            setFrontLicenseFile(null); setBackLicenseFile(null);
-            setDriverForm({ so_gplx: "", hang_bang: "B2", kinh_nghiem: "", ngay_het_han: "" })
-        } else {
-             if (res.status === 401) { logout(); return; }
-             throw new Error(data.message || "Đăng ký thất bại")
-        }
+        setIsDriverModalOpen(false)
+        // Reset form
+        setFrontLicenseFile(null); setBackLicenseFile(null);
+        setDriverForm({ so_gplx: "", hang_bang: "B2", kinh_nghiem: "", ngay_het_han: "" })
+      } else {
+        if (res.status === 401) { logout(); return; }
+        throw new Error(data.message || "Đăng ký thất bại")
+      }
     } catch (error: any) {
-        toast({ variant: "destructive", title: "Gửi hồ sơ thất bại", description: error.message })
+      toast({ variant: "destructive", title: "Gửi hồ sơ thất bại", description: error.message })
     } finally {
-        setIsSubmittingDriver(false)
+      setIsSubmittingDriver(false)
     }
   }
 
   // --- RENDER ---
   if (isLoading) return (
     <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
-  ); 
-  
+  );
+
   if (!user) {
-      if (typeof window !== 'undefined') logout(); 
-      return null;
+    if (typeof window !== 'undefined') logout();
+    return null;
   }
 
   return (
@@ -225,12 +225,12 @@ export default function ProfilePage() {
                 <form onSubmit={handleSubmit} className="space-y-8">
                   <div className="flex flex-col items-center space-y-4">
                     <div className="h-24 w-24 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border-2 relative group">
-                      {preview ? 
-                        <img src={preview} alt="Avatar" className="h-full w-full object-cover" /> 
+                      {preview ?
+                        <img src={preview} alt="Avatar" className="h-full w-full object-cover" />
                         : <User className="h-10 w-10 text-slate-400" />
                       }
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                          <Upload className="text-white h-6 w-6" />
+                        <Upload className="text-white h-6 w-6" />
                       </div>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
@@ -240,24 +240,24 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Họ và tên</Label>
+                      <Input name="ho_ten" value={formData.ho_ten} onChange={handleInputChange} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                          <Label>Họ và tên</Label>
-                          <Input name="ho_ten" value={formData.ho_ten} onChange={handleInputChange} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                              <Label>Email</Label>
-                              <Input name="email" value={formData.email} disabled className="bg-slate-100" />
-                          </div>
-                          <div className="space-y-2">
-                              <Label>Số điện thoại</Label>
-                              <Input name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} />
-                          </div>
+                        <Label>Email</Label>
+                        <Input name="email" value={formData.email} disabled className="bg-slate-100" />
                       </div>
                       <div className="space-y-2">
-                          <Label>Địa chỉ</Label>
-                          <Input name="dia_chi" value={formData.dia_chi} onChange={handleInputChange} />
+                        <Label>Số điện thoại</Label>
+                        <Input name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Địa chỉ</Label>
+                      <Input name="dia_chi" value={formData.dia_chi} onChange={handleInputChange} />
+                    </div>
                   </div>
                   <Button type="submit" className="w-full">Lưu thay đổi</Button>
                 </form>
@@ -267,23 +267,23 @@ export default function ProfilePage() {
                   <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
                     <Car className="h-5 w-5 text-blue-600" /> Đối tác vận chuyển
                   </h3>
-                  
+
                   {user.vai_tro === 'TAI_XE' ? (
-                       <div className="bg-green-50 text-green-700 p-4 rounded-lg flex items-center gap-2 border border-green-200">
-                          <CheckCircle className="h-5 w-5" />
-                          Bạn đã là Tài xế chính thức của VietLogistics
-                       </div>
+                    <div className="bg-green-50 text-green-700 p-4 rounded-lg flex items-center gap-2 border border-green-200">
+                      <CheckCircle className="h-5 w-5" />
+                      Bạn đã là Tài xế chính thức của VietLogistics
+                    </div>
                   ) : (
-                      <>
-                          <p className="text-sm text-muted-foreground mb-4">Gia tăng thu nhập cùng VietLogistics.</p>
-                          <Button 
-                          onClick={() => setIsDriverModalOpen(true)} 
-                          variant="secondary" 
-                          className="w-full border-2 border-blue-100 hover:bg-blue-50 text-blue-700"
-                          >
-                          Đăng ký trở thành Tài xế
-                          </Button>
-                      </>
+                    <>
+                      <p className="text-sm text-muted-foreground mb-4">Gia tăng thu nhập cùng VietLogistics.</p>
+                      <Button
+                        onClick={() => setIsDriverModalOpen(true)}
+                        variant="secondary"
+                        className="w-full border-2 border-blue-100 hover:bg-blue-50 text-blue-700"
+                      >
+                        Đăng ký trở thành Tài xế
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardContent>
@@ -294,11 +294,11 @@ export default function ProfilePage() {
         {/* --- MODAL ĐĂNG KÝ TÀI XẾ --- */}
         <AnimatePresence>
           {isDriverModalOpen && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
             >
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
                 className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
               >
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Hạng bằng</Label>
-                        <select 
+                        <select
                           name="hang_bang" value={driverForm.hang_bang} onChange={handleDriverChange}
                           className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         >
@@ -341,34 +341,34 @@ export default function ProfilePage() {
                     <div className="space-y-3 pt-2">
                       <Label className="text-base font-semibold">Ảnh chụp bằng lái</Label>
                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Mặt trước</Label>
-                              <div className={`border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center relative cursor-pointer hover:bg-slate-50 transition-colors ${frontLicenseFile ? 'border-green-500 bg-green-50' : 'border-slate-300'}`}>
-                                  <input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'FRONT')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                  {frontLicenseFile ? (
-                                      <div className="text-center px-2">
-                                          <FileImage className="h-8 w-8 text-green-600 mx-auto mb-1" />
-                                          <p className="text-xs text-green-700 truncate max-w-full">{frontLicenseFile.name}</p>
-                                      </div>
-                                  ) : (
-                                      <> <Upload className="h-6 w-6 text-slate-400 mb-1" /> <span className="text-xs text-slate-500">Tải lên</span> </>
-                                  )}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Mặt trước</Label>
+                          <div className={`border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center relative cursor-pointer hover:bg-slate-50 transition-colors ${frontLicenseFile ? 'border-green-500 bg-green-50' : 'border-slate-300'}`}>
+                            <input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'FRONT')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                            {frontLicenseFile ? (
+                              <div className="text-center px-2">
+                                <FileImage className="h-8 w-8 text-green-600 mx-auto mb-1" />
+                                <p className="text-xs text-green-700 truncate max-w-full">{frontLicenseFile.name}</p>
                               </div>
+                            ) : (
+                              <> <Upload className="h-6 w-6 text-slate-400 mb-1" /> <span className="text-xs text-slate-500">Tải lên</span> </>
+                            )}
                           </div>
-                          <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Mặt sau</Label>
-                              <div className={`border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center relative cursor-pointer hover:bg-slate-50 transition-colors ${backLicenseFile ? 'border-green-500 bg-green-50' : 'border-slate-300'}`}>
-                                  <input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'BACK')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                  {backLicenseFile ? (
-                                      <div className="text-center px-2">
-                                          <FileImage className="h-8 w-8 text-green-600 mx-auto mb-1" />
-                                          <p className="text-xs text-green-700 truncate max-w-full">{backLicenseFile.name}</p>
-                                      </div>
-                                  ) : (
-                                      <> <Upload className="h-6 w-6 text-slate-400 mb-1" /> <span className="text-xs text-slate-500">Tải lên</span> </>
-                                  )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Mặt sau</Label>
+                          <div className={`border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center relative cursor-pointer hover:bg-slate-50 transition-colors ${backLicenseFile ? 'border-green-500 bg-green-50' : 'border-slate-300'}`}>
+                            <input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'BACK')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                            {backLicenseFile ? (
+                              <div className="text-center px-2">
+                                <FileImage className="h-8 w-8 text-green-600 mx-auto mb-1" />
+                                <p className="text-xs text-green-700 truncate max-w-full">{backLicenseFile.name}</p>
                               </div>
+                            ) : (
+                              <> <Upload className="h-6 w-6 text-slate-400 mb-1" /> <span className="text-xs text-slate-500">Tải lên</span> </>
+                            )}
                           </div>
+                        </div>
                       </div>
                     </div>
                   </form>
@@ -377,7 +377,7 @@ export default function ProfilePage() {
                 <div className="p-5 border-t bg-slate-50 flex gap-3 justify-end">
                   <Button variant="outline" onClick={() => setIsDriverModalOpen(false)}>Hủy bỏ</Button>
                   <Button type="submit" form="driver-form" disabled={isSubmittingDriver}>
-                      {isSubmittingDriver ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Đang gửi...</> : "Gửi hồ sơ"}
+                    {isSubmittingDriver ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Đang gửi...</> : "Gửi hồ sơ"}
                   </Button>
                 </div>
               </motion.div>

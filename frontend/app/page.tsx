@@ -10,16 +10,16 @@ import { Footer } from "@/components/footer"
 
 async function getServices() {
   try {
-    
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services`, { 
-      cache: 'no-store' // Để luôn lấy dữ liệu mới nhất khi reload
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services`, {
+      cache: 'no-store'
     });
-    
+
     if (!res.ok) {
-        console.error("Failed to fetch services");
-        return [];
+      console.error("Failed to fetch services");
+      return [];
     }
-    
+
     return res.json();
   } catch (error) {
     console.error("Error fetching services:", error);
@@ -27,24 +27,24 @@ async function getServices() {
   }
 }
 
-async function getWarehouses(){
+async function getWarehouses() {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, {
       cache: 'no-store'
     });
-    if(!res.ok) return [];
+    if (!res.ok) return [];
     return res.json();
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("Failed to fetch warehouses:", error);
-    return[];
+    return [];
   }
 }
 
 export default async function HomePage() {
-  const [servicesData, warehousesData] = await Promise.all( [
+  const [servicesData, warehousesData] = await Promise.all([
     getServices(),
     getWarehouses()
-  ]) 
+  ])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -52,10 +52,10 @@ export default async function HomePage() {
       <main className="flex-1">
         <HeroSection />
         <TrackingSection />
-        <ServicesSection data={servicesData}/>
+        <ServicesSection data={servicesData} />
         <FeaturesSection />
         <StatsSection />
-        <MapSection data={warehousesData}/>
+        <MapSection data={warehousesData} />
         <CTASection />
       </main>
       <Footer />

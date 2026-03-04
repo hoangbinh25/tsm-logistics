@@ -10,14 +10,23 @@ import transportServiceRoute from "./transport-service.route"
 import orderRoute from "./order.route"
 import driverRoute from './driver.route';
 import notificationRoute from './notification.route'
+import ghtkRoute from './ghtk.route'
+import incidentRoute from './incident.route'
+
 
 const router = Router();
+console.log("Initializing API routes...");
+
+router.get("/debug-fleet", (req, res) => res.json({ message: "Fleet route reachable" }));
 
 // user
 router.use("/auth", authRoute)
 router.use("/users", userRoute)
 router.use("/orders", orderRoute)
 router.use('/drivers', driverRoute);
+router.use('/ghtk', ghtkRoute);
+router.use('/incidents', incidentRoute);
+
 
 // driver
 router.use('/notifications', notificationRoute)
