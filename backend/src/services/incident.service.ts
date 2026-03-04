@@ -9,7 +9,7 @@ export interface ReportIncidentParams {
     loaiSuCo: LoaiSuCo;
     moTa: string;
     viTri?: string;
-    hinhAnh?: string; // Có thể lưu JSON string của danh sách ảnh
+    hinhAnh?: string;
 }
 
 export const reportIncidentService = async (params: ReportIncidentParams) => {

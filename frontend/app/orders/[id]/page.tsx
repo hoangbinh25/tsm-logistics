@@ -1,20 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { useOrderDetail, useOrderPaymentStatus, useOrderMutations } from "@/hooks/use-orders"
 import { useParams, useRouter } from "next/navigation"
-import { useAuth } from "@/context/AuthContext"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { orderService } from "@/services/order.service"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
-    ArrowLeft, Calendar, Clock, MapPin,
-    Truck, CheckCircle, Package, User, CreditCard, QrCode
+    ArrowLeft, Clock, MapPin, Truck, CheckCircle, Package, User, CreditCard, QrCode
 } from "lucide-react"
 import { format } from "date-fns"
-import { QRCodeSVG } from "qrcode.react"
 import {
     Dialog,
     DialogContent,
@@ -22,84 +21,48 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
+import { OrderItem } from "@/types/order"
 
 export default function OrderDetailPage() {
     const { id } = useParams()
     const router = useRouter()
-    const { http } = useAuth()
     const { toast } = useToast()
-    const [order, setOrder] = useState<any>(null)
-    const [loading, setLoading] = useState(true)
-    const [paymentUrl, setPaymentUrl] = useState<string>("")
+
     const [isQRModalOpen, setIsQRModalOpen] = useState(false)
+    const [paymentUrl, setPaymentUrl] = useState<string>("")
     const [isProcessing, setIsProcessing] = useState(false)
-    const [paymentStatus, setPaymentStatus] = useState<string>("PENDING")
 
-    // Polling thanh toán
-    useEffect(() => {
-        let interval: any;
-        if (isQRModalOpen && paymentStatus !== 'SUCCESS') {
-            interval = setInterval(async () => {
-                try {
-                    const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${id}/payment-status`)
-                    if (res.ok) {
-                        const data = await res.json()
-                        if (data.status === 'SUCCESS') {
-                            setPaymentStatus('SUCCESS')
-                            clearInterval(interval)
-                            toast({ title: "Thành công", description: "Thanh toán đã được xác nhận!" })
-                            setTimeout(() => {
-                                setIsQRModalOpen(false)
-                                fetchOrderDetail()
-                            }, 2000)
-                        }
-                    }
-                } catch (error) {
-                    console.error("Lỗi check status:", error)
-                }
-            }, 10000) // 10 giây check 1 lần cho đỡ tốn tài nguyên
-        }
-        return () => clearInterval(interval)
-    }, [isQRModalOpen, paymentStatus, id, http])
+    // 1. Fetch chi tiết đơn hàng
+    const { data: orderData, isLoading: isOrderLoading, refetch: refetchOrder } = useOrderDetail(id as string)
+    const order = orderData?.data
 
-    const fetchOrderDetail = async () => {
-        try {
-            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                setOrder(payload.data)
-            }
-        } catch (error) {
-            console.error("Lỗi:", error)
-        } finally {
-            setLoading(false)
-        }
+    // 2. Poll trạng thái thanh toán khi Modal QR mở
+    const { data: statusData } = useOrderPaymentStatus(id as string, isQRModalOpen)
+    const paymentStatus = statusData?.status || "PENDING"
+
+    // Tự động đóng modal và refetch khi thành công
+    if (isQRModalOpen && paymentStatus === 'SUCCESS') {
+        setTimeout(() => {
+            setIsQRModalOpen(false)
+            refetchOrder()
+            toast({ title: "Thành công", description: "Thanh toán đã được xác nhận!" })
+        }, 2000)
     }
 
-    useEffect(() => {
-        if (id) fetchOrderDetail()
-    }, [id, http])
+    // 3. Mutations
+    const { switchCodMutation } = useOrderMutations()
 
     const handlePayment = async () => {
         setIsProcessing(true)
         try {
-            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${id}/payment-link`)
-            if (res.ok) {
-                const data = await res.json()
-                setPaymentUrl(data.paymentUrl)
-                setIsQRModalOpen(true)
-            } else {
-                toast({
-                    title: "Lỗi",
-                    description: "Không thể lấy link thanh toán",
-                    variant: "destructive"
-                })
-            }
-        } catch (error) {
+            const data = await orderService.getPaymentLink(id as string)
+            setPaymentUrl(data.paymentUrl)
+            setIsQRModalOpen(true)
+        } catch (error: any) {
             toast({
                 title: "Lỗi",
-                description: "Lỗi kết nối",
+                description: error.message || "Không thể lấy link thanh toán",
                 variant: "destructive"
             })
         } finally {
@@ -109,37 +72,15 @@ export default function OrderDetailPage() {
 
     const handleSwitchToCOD = async () => {
         if (!confirm("Bạn có chắc muốn chuyển sang thanh toán COD không?")) return
-
-        setIsProcessing(true)
-        try {
-            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders/${id}/switch-cod`, {
-                method: 'POST'
-            })
-            if (res.ok) {
-                toast({
-                    title: "Thành công",
-                    description: "Đã chuyển sang COD thành công"
-                })
-                fetchOrderDetail()
-            } else {
-                toast({
-                    title: "Lỗi",
-                    description: "Lỗi chuyển đổi",
-                    variant: "destructive"
-                })
-            }
-        } catch (error) {
-            toast({
-                title: "Lỗi",
-                description: "Lỗi kết nối",
-                variant: "destructive"
-            })
-        } finally {
-            setIsProcessing(false)
-        }
+        switchCodMutation.mutate(id as string, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: "Đã chuyển sang COD thành công" })
+            },
+            onError: (error: any) => toast({ title: "Lỗi", description: error.message, variant: "destructive" })
+        })
     }
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>
+    if (isOrderLoading) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>
     if (!order) return <div className="min-h-screen flex items-center justify-center">Không tìm thấy đơn hàng</div>
 
     const latestPayment = order.thanh_toan?.[0]
@@ -268,7 +209,7 @@ export default function OrderDetailPage() {
                             <CardHeader><CardTitle className="text-base">Sản phẩm / Hàng hóa</CardTitle></CardHeader>
                             <CardContent>
                                 <div className="space-y-3">
-                                    {order.chi_tiet?.map((item: any, idx: number) => (
+                                    {order.chi_tiet?.map((item: OrderItem, idx: number) => (
                                         <div key={idx} className="flex justify-between items-center py-2 border-b last:border-0">
                                             <div>
                                                 <p className="font-medium">{item.ten_hang_hoa}</p>
@@ -336,9 +277,9 @@ export default function OrderDetailPage() {
                                             variant="outline"
                                             className="w-full"
                                             onClick={handleSwitchToCOD}
-                                            disabled={isProcessing}
+                                            disabled={isProcessing || switchCodMutation.isPending}
                                         >
-                                            Chuyển sang COD
+                                            {switchCodMutation.isPending ? "Đang xử lý..." : "Chuyển sang COD"}
                                         </Button>
                                     </div>
                                 )}

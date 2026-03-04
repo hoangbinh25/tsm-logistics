@@ -14,8 +14,8 @@ export async function register(req: Request, res: Response) {
 export async function loginGoogle(req: Request, res: Response) {
     try {
         const { token } = req.body;
-        if(!token) {
-            return res.status(400).json({ message: "Token is required"})
+        if (!token) {
+            return res.status(400).json({ message: "Token is required" })
         }
         const result = await AuthService.loginGoogleService(token);
         res.json(result);
@@ -61,3 +61,16 @@ export const resetPassword = async (req: Request, res: Response) => {
         res.status(400).json({ message: error.message });
     }
 };
+
+export async function refreshToken(req: Request, res: Response) {
+    try {
+        const { refreshToken } = req.body;
+        if (!refreshToken) {
+            return res.status(400).json({ message: "Refresh token is required" });
+        }
+        const result = await AuthService.refreshTokenService(refreshToken);
+        res.json(result);
+    } catch (error: any) {
+        res.status(401).json({ message: error.message });
+    }
+}

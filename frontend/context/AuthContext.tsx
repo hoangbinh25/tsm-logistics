@@ -21,7 +21,6 @@ interface AuthContextType {
   logout: () => void
   isLoading: boolean
   updateProfile: (data: Partial<User>) => void
-  http: (url: string, options?: RequestInit) => Promise<Response>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -82,32 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // 4. HTTP WRAPPER (Tự động lấy Token để gửi)
-  const http = async (url: string, options: RequestInit = {}) => {
-    const token = sessionStorage.getItem("accessToken")
 
-    const headers = {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-    } as HeadersInit
-
-    try {
-      const response = await fetch(url, { ...options, headers })
-
-      if (response.status === 401) {
-        logout()
-        return Promise.reject("Phiên đăng nhập hết hạn")
-      }
-
-      return response
-    } catch (error) {
-      throw error
-    }
-  }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, updateProfile, http }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

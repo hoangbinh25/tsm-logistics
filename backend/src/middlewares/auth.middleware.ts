@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// Định nghĩa Interface mở rộng để TypeScript hiểu req.user là gì
 export interface AuthRequest extends Request {
     user?: {
         sub: string;  // User ID
@@ -25,7 +24,7 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
 
         // 3. Verify token bằng Secret Key
         const secret = process.env.JWT_ACCESS_SECRET;
-        
+
         if (!secret) {
             console.error("Chưa cấu hình JWT_ACCESS_SECRET trong file .env");
             return res.status(500).json({ message: "Lỗi cấu hình server" });
@@ -40,14 +39,14 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
         next();
 
     } catch (error: any) {
-        console.log("Lỗi Verify Token:", error.name, error.message); 
+        console.log("Lỗi Verify Token:", error.name, error.message);
         console.log("Secret đang dùng:", process.env.JWT_ACCESS_SECRET);
         console.error("JWT Verification Error:", error.message);
-        
+
         if (error.name === 'TokenExpiredError') {
             return res.status(401).json({ message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" });
         }
-        
+
         return res.status(403).json({ message: "Token không hợp lệ" });
     }
 };

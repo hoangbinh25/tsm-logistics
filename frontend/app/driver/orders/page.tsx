@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useAuth } from "@/context/AuthContext"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { Package, Clock, MapPin } from "lucide-react"
+import { fetchWithAuth } from "@/utils/api"
 
 // Định nghĩa kiểu dữ liệu đơn hàng
 interface Order {
@@ -18,12 +18,11 @@ interface Order {
 }
 
 export default function OrderListPage() {
-    const { http } = useAuth();
     const router = useRouter();
-    
+
     // 1. STATE QUẢN LÝ TAB (Mặc định là xem đơn đang chạy)
     const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
-    
+
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -31,11 +30,11 @@ export default function OrderListPage() {
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders?type=${activeTab}`);
-            
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders?type=${activeTab}`);
+
             if (res.ok) {
                 const payload = await res.json(); // Phải giải nén JSON
-                setOrders(payload.data || []); 
+                setOrders(payload.data || []);
             } else {
                 setOrders([]);
             }
@@ -46,7 +45,7 @@ export default function OrderListPage() {
         } finally {
             setLoading(false);
         }
-    }, [http, activeTab]);
+    }, [fetchWithAuth, activeTab]);
 
     // 3. useEffect: Gọi hàm fetch mỗi khi activeTab thay đổi
     useEffect(() => {
@@ -55,7 +54,7 @@ export default function OrderListPage() {
 
     // Hàm tô màu trạng thái cho đẹp
     const getStatusColor = (status: string) => {
-        switch(status) {
+        switch (status) {
             case 'TAO_MOI': return 'bg-blue-100 text-blue-700';
             case 'DA_PHAN_CONG': return 'bg-purple-100 text-purple-700';
             case 'DANG_VAN_CHUYEN': return 'bg-yellow-100 text-yellow-800';
@@ -70,26 +69,24 @@ export default function OrderListPage() {
             {/* Header */}
             <div className="bg-white p-4 shadow-sm sticky top-0 z-10">
                 <h1 className="text-xl font-bold text-gray-800">Quản lý đơn hàng</h1>
-                
+
                 {/* 4. THANH TABS CHUYỂN ĐỔI */}
                 <div className="flex mt-4 bg-gray-100 p-1 rounded-lg">
-                    <button 
+                    <button
                         onClick={() => setActiveTab('active')}
-                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                            activeTab === 'active' 
-                            ? 'bg-white text-blue-600 shadow-sm' 
+                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'active'
+                            ? 'bg-white text-blue-600 shadow-sm'
                             : 'text-gray-500 hover:text-gray-700'
-                        }`}
+                            }`}
                     >
                         Đang thực hiện
                     </button>
-                    <button 
+                    <button
                         onClick={() => setActiveTab('history')}
-                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                            activeTab === 'history' 
-                            ? 'bg-white text-blue-600 shadow-sm' 
+                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
+                            ? 'bg-white text-blue-600 shadow-sm'
                             : 'text-gray-500 hover:text-gray-700'
-                        }`}
+                            }`}
                     >
                         Lịch sử / Đã xong
                     </button>
@@ -107,8 +104,8 @@ export default function OrderListPage() {
                     </div>
                 ) : (
                     orders.map((order) => (
-                        <div 
-                            key={order.id} 
+                        <div
+                            key={order.id}
                             onClick={() => router.push(`/driver/orders/${order.id}`)} // Bấm vào xem chi tiết
                             className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 active:scale-95 transition-transform cursor-pointer"
                         >

@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import {
   Search, Plus, MoreHorizontal, Edit, Trash2, Container, DollarSign
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useServices, useServiceMutations } from "@/hooks/use-services"
+import { Service } from "@/types/service"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -18,20 +20,27 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { StatsCard } from "@/components/stats-card"
+import { useToast } from "@/hooks/use-toast"
 
 // Helper format tiền
 const formatVND = (value: any) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value))
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<any[]>([])
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+
+  // Fetch data with hook
+  const { data: services = [], isLoading: isFetching } = useServices()
+  const { createMutation, updateMutation, deleteMutation } = useServiceMutations()
+
+  const isSubmitting = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending
 
   // State Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
-  const [currentService, setCurrentService] = useState<any>(null)
+  const [currentService, setCurrentService] = useState<Service | null>(null)
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -45,19 +54,6 @@ export default function ServicesPage() {
     trang_thai: "HOAT_DONG"
   })
 
-  // 1. Fetch Services
-  const fetchServices = async () => {
-    const token = sessionStorage.getItem("accessToken")
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      if (res.ok) setServices(await res.json())
-    } catch (error) { console.error(error) }
-  }
-
-  useEffect(() => { fetchServices() }, [])
-
   // 2. Open Modal
   const openAddModal = () => {
     setCurrentService(null)
@@ -68,7 +64,7 @@ export default function ServicesPage() {
     setIsModalOpen(true)
   }
 
-  const openEditModal = (item: any) => {
+  const openEditModal = (item: Service) => {
     setCurrentService(item)
     setFormData({
       ma_dich_vu: item.ma_dich_vu,
@@ -76,7 +72,7 @@ export default function ServicesPage() {
       mo_ta: item.mo_ta || "",
       loai_dich_vu: item.loai_dich_vu,
       don_vi_tinh: item.don_vi_tinh,
-      gia_co_ban: item.gia_co_ban,
+      gia_co_ban: item.gia_co_ban.toString(),
       chinh_sach_gia: item.chinh_sach_gia || "",
       trang_thai: item.trang_thai
     })
@@ -86,44 +82,35 @@ export default function ServicesPage() {
   // 3. Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    const token = sessionStorage.getItem("accessToken")
-    const url = currentService
-      ? `${process.env.NEXT_PUBLIC_API_URL}/services/${currentService.id}`
-      : `${process.env.NEXT_PUBLIC_API_URL}/services`
-    const method = currentService ? "PUT" : "POST"
-
-    try {
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(formData)
+    if (currentService) {
+      updateMutation.mutate({ id: currentService.id, data: formData }, {
+        onSuccess: () => {
+          toast({ title: "Thành công", description: "Cập nhật dịch vụ thành công" })
+          setIsModalOpen(false)
+        },
+        onError: (err: any) => toast({ title: "Lỗi", description: err.message, variant: "destructive" })
       })
-      if (res.ok) {
-        alert(currentService ? "Cập nhật thành công" : "Thêm mới thành công")
-        setIsModalOpen(false)
-        fetchServices()
-      } else {
-        const err = await res.json()
-        alert(err.message || "Lỗi")
-      }
-    } catch (error) { console.error(error) } finally { setIsLoading(false) }
+    } else {
+      createMutation.mutate(formData, {
+        onSuccess: () => {
+          toast({ title: "Thành công", description: "Thêm dịch vụ mới thành công" })
+          setIsModalOpen(false)
+        },
+        onError: (err: any) => toast({ title: "Lỗi", description: err.message, variant: "destructive" })
+      })
+    }
   }
 
   // 4. Delete
   const handleDelete = async () => {
-    const token = sessionStorage.getItem("accessToken")
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/services/${currentService.id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      if (res.ok) {
-        alert("Đã xóa dịch vụ")
+    if (!currentService) return
+    deleteMutation.mutate(currentService.id, {
+      onSuccess: () => {
+        toast({ title: "Thành công", description: "Đã xóa dịch vụ" })
         setIsDeleteAlertOpen(false)
-        fetchServices()
-      }
-    } catch (error) { console.error(error) }
+      },
+      onError: (err: any) => toast({ title: "Lỗi", description: err.message, variant: "destructive" })
+    })
   }
 
   // Render Badge
@@ -133,7 +120,7 @@ export default function ServicesPage() {
       : <Badge variant="destructive">Tạm dừng</Badge>
   }
 
-  const filteredData = services.filter(s =>
+  const filteredData = services.filter((s: Service) =>
     s.ten_dich_vu.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.ma_dich_vu.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -152,14 +139,18 @@ export default function ServicesPage() {
 
       {/* Cards thống kê nhanh */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 border rounded-xl bg-card flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg"><Container className="w-6 h-6 text-blue-600" /></div>
-          <div><p className="text-sm text-muted-foreground">Tổng dịch vụ</p><h3 className="text-2xl font-bold">{services.length}</h3></div>
-        </div>
-        <div className="p-4 border rounded-xl bg-card flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 rounded-lg"><DollarSign className="w-6 h-6 text-emerald-600" /></div>
-          <div><p className="text-sm text-muted-foreground">Đang hoạt động</p><h3 className="text-2xl font-bold">{services.filter(s => s.trang_thai === 'HOAT_DONG').length}</h3></div>
-        </div>
+        <StatsCard
+          label="Tổng dịch vụ"
+          value={services.length}
+          icon={Container}
+          iconClassName="bg-blue-100 text-blue-600"
+        />
+        <StatsCard
+          label="Đang hoạt động"
+          value={services.filter((s: Service) => s.trang_thai === 'HOAT_DONG').length}
+          icon={DollarSign}
+          iconClassName="bg-emerald-100 text-emerald-600"
+        />
       </div>
 
       <div className="space-y-4">
@@ -183,7 +174,9 @@ export default function ServicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredData.map((s) => (
+              {isFetching ? (
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">Đang tải dữ liệu...</td></tr>
+              ) : filteredData.map((s: Service) => (
                 <tr key={s.id} className="hover:bg-muted/30">
                   <td className="px-6 py-4 font-mono font-bold text-primary">{s.ma_dich_vu}</td>
                   <td className="px-6 py-4">
@@ -230,7 +223,7 @@ export default function ServicesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Loại hình</Label>
-                <Select value={formData.loai_dich_vu} onValueChange={(val) => setFormData({ ...formData, loai_dich_vu: val })}>
+                <Select value={formData.loai_dich_vu} onValueChange={(val: any) => setFormData({ ...formData, loai_dich_vu: val })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NOI_TINH">Nội tỉnh</SelectItem>
@@ -240,7 +233,7 @@ export default function ServicesPage() {
               </div>
               <div className="space-y-2">
                 <Label>Trạng thái</Label>
-                <Select value={formData.trang_thai} onValueChange={(val) => setFormData({ ...formData, trang_thai: val })}>
+                <Select value={formData.trang_thai} onValueChange={(val: any) => setFormData({ ...formData, trang_thai: val })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
@@ -270,7 +263,7 @@ export default function ServicesPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-              <Button type="submit" disabled={isLoading}>{isLoading ? "Đang lưu..." : "Lưu thông tin"}</Button>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Đang lưu..." : "Lưu thông tin"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -283,7 +276,9 @@ export default function ServicesPage() {
           <p>Bạn có chắc muốn xóa dịch vụ <strong>{currentService?.ten_dich_vu}</strong>?</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteAlertOpen(false)}>Hủy</Button>
-            <Button variant="destructive" onClick={handleDelete}>Xóa ngay</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
+              {deleteMutation.isPending ? "Đang xóa..." : "Xóa ngay"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

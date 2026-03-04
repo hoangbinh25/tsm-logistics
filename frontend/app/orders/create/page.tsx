@@ -14,19 +14,30 @@ import { Loader2 } from "lucide-react"
 
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-
-// Định nghĩa kiểu dữ liệu khớp với Backend trả về
-interface Warehouse { id: string; ten_kho: string; }
-interface Service { id: string; ten_dich_vu: string; gia_co_ban: number; don_vi_tinh: string; }
+import { AddressSelector } from "@/components/address-selector"
+import { useWarehouses } from "@/hooks/use-warehouses"
+import { Warehouse } from "@/types/warehouse"
+import { useServices, Service } from "@/hooks/use-services"
+import { useOrderMutations } from "@/hooks/use-orders"
 
 export default function CreateOrderPage() {
-    const { user, http } = useAuth()
+    const { user } = useAuth()
     const router = useRouter()
     const { toast } = useToast()
 
     // State quản lý form
-    const [receiver, setReceiver] = useState({ name: "", phone: "", address: "" })
-    const [item, setItem] = useState({ name: "", weight: "", quantity: 1, value: "" })
+    const [receiver, setReceiver] = useState({ name: "", phone: "" })
+    const [item, setItem] = useState({
+        name: "",
+        weight: "",
+        quantity: 1,
+        value: "",
+        codAmount: "",
+        length: "",
+        width: "",
+        height: ""
+    })
+    const [payer, setPayer] = useState("SENDER")
     const [paymentMethod, setPaymentMethod] = useState("COD")
     const [note, setNote] = useState("")
     const [selectedAddress, setSelectedAddress] = useState({
@@ -36,92 +47,25 @@ export default function CreateOrderPage() {
         detail: ""
     })
 
-    // State cho API Tỉnh/Thành
-    const [provinces, setProvinces] = useState<any[]>([])
-    const [districts, setDistricts] = useState<any[]>([])
-    const [wards, setWards] = useState<any[]>([])
-
-    // State dữ liệu API
-    const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-    const [services, setServices] = useState<Service[]>([])
-    const [isLoadingData, setIsLoadingData] = useState(true)
-    const [isSubmitting, setIsSubmitting] = useState(false)
-
-    // State lựa chọn (ID)
     const [warehouseId, setWarehouseId] = useState("")
     const [serviceId, setServiceId] = useState("")
 
-    // 1. Fetch dữ liệu khi Component mount
+    // 1. Fetch dữ liệu với hooks
+    const { data: warehouses = [], isLoading: isLoadingWarehouses } = useWarehouses()
+    const { data: services = [], isLoading: isLoadingServices } = useServices()
+    const { createMutation } = useOrderMutations()
+
+    // Tự động chọn giá trị đầu tiên
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Gọi song song 2 API
-                const [resKho, resDV] = await Promise.all([
-                    // http tự động đính kèm token vào header
-                    http(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`),
-                    http(`${process.env.NEXT_PUBLIC_API_URL}/services`)
-                ])
+        if (warehouses.length > 0 && !warehouseId) setWarehouseId(warehouses[0].id)
+    }, [warehouses, warehouseId])
 
-                if (resKho.ok && resDV.ok) {
-                    const dataKho = await resKho.json()
-                    const dataDV = await resDV.json()
-
-                    setWarehouses(dataKho)
-                    setServices(dataDV)
-
-                    // Tự động chọn cái đầu tiên nếu danh sách có dữ liệu
-                    if (dataKho.length > 0) setWarehouseId(dataKho[0].id)
-                    if (dataDV.length > 0) setServiceId(dataDV[0].id)
-                } else {
-                    console.error("Lỗi fetch data master")
-                }
-            } catch (error) {
-                console.error("Lỗi kết nối:", error)
-                toast({ title: "Lỗi mạng", description: "Không tải được danh sách kho/dịch vụ", variant: "destructive" })
-            } finally {
-                setIsLoadingData(false)
-            }
-        }
-        fetchData()
-    }, [router, toast])
-
-    // Fetch Tỉnh/Thành
     useEffect(() => {
-        fetch("https://provinces.open-api.vn/api/p/")
-            .then(res => res.json())
-            .then(data => setProvinces(data))
-            .catch(err => console.error("Lỗi fetch tỉnh:", err))
-    }, [])
+        if (services.length > 0 && !serviceId) setServiceId(services[0].id)
+    }, [services, serviceId])
 
-    // Fetch Quận/Huyện khi chọn Tỉnh
-    useEffect(() => {
-        if (!selectedAddress.province) {
-            setDistricts([])
-            return
-        }
-        const provinceCode = provinces.find(p => p.name === selectedAddress.province)?.code
-        if (provinceCode) {
-            fetch(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`)
-                .then(res => res.json())
-                .then(data => setDistricts(data.districts))
-                .catch(err => console.error("Lỗi fetch huyện:", err))
-        }
-    }, [selectedAddress.province, provinces])
-
-    // Fetch Phường/Xã khi chọn Huyện
-    useEffect(() => {
-        if (!selectedAddress.district) {
-            setWards([])
-            return
-        }
-        const districtCode = districts.find(d => d.name === selectedAddress.district)?.code
-        if (districtCode) {
-            fetch(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`)
-                .then(res => res.json())
-                .then(data => setWards(data.wards))
-                .catch(err => console.error("Lỗi fetch xã:", err))
-        }
-    }, [selectedAddress.district, districts])
+    const isLoadingData = isLoadingWarehouses || isLoadingServices
+    const isSubmitting = createMutation.isPending
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -131,9 +75,6 @@ export default function CreateOrderPage() {
             return;
         }
 
-        setIsSubmitting(true)
-
-        // Payload chuẩn gửi xuống Backend
         const fullAddress = `${selectedAddress.detail}, ${selectedAddress.ward}, ${selectedAddress.district}, ${selectedAddress.province}`
 
         const payload = {
@@ -142,6 +83,7 @@ export default function CreateOrderPage() {
             warehouseId: warehouseId,
             serviceId: serviceId,
             paymentMethod: paymentMethod,
+            payer: payer,
             note: note,
             items: [
                 {
@@ -150,45 +92,35 @@ export default function CreateOrderPage() {
                     so_luong: Number(item.quantity),
                     don_vi: "Kien",
                     khoi_luong: Number(item.weight),
-                    don_gia: Number(item.value)
+                    kich_thuoc: `${item.length}x${item.width}x${item.height}`,
+                    gia_tri: Number(item.value),
+                    tien_cod: Number(item.codAmount || 0)
                 }
             ]
         }
 
-        try {
-            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
-                method: "POST",
-                body: JSON.stringify(payload)
-            })
-
-            const data = await res.json()
-
-            if (res.ok) {
+        createMutation.mutate(payload, {
+            onSuccess: (data: any) => {
                 if (data.paymentUrl) {
                     toast({
                         title: "Đơn hàng đã được khởi tạo",
                         description: "Đang mở thông tin thanh toán...",
                         className: "bg-blue-50 text-blue-900"
                     })
-                    // Chuyển hướng đến chi tiết đơn để hiện QR
                     router.push(`/orders/${data.data.id}`)
                 } else {
                     toast({
                         title: "Tạo đơn thành công!",
-                        description: `Mã vận đơn: ${data.data.ma_don_hang}. Đang gửi mail xác nhận...`,
-                        duration: 5000,
+                        description: `Mã vận đơn: ${data.data.ma_don_hang}.`,
                         className: "bg-green-50 border-green-200 text-green-900"
                     })
                     router.push("/orders")
                 }
-            } else {
-                throw new Error(data.message || "Có lỗi xảy ra")
+            },
+            onError: (error: any) => {
+                toast({ title: "Tạo đơn thất bại", description: error.message, variant: "destructive" })
             }
-        } catch (error: any) {
-            toast({ title: "Tạo đơn thất bại", description: error.message, variant: "destructive" })
-        } finally {
-            setIsSubmitting(false)
-        }
+        })
     }
 
     return (
@@ -213,7 +145,7 @@ export default function CreateOrderPage() {
                                                 <SelectValue placeholder={isLoadingData ? "Đang tải kho..." : "Chọn kho hàng"} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {warehouses.map(w => (
+                                                {warehouses.map((w: Warehouse) => (
                                                     <SelectItem key={w.id} value={w.id}>{w.ten_kho}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -228,7 +160,7 @@ export default function CreateOrderPage() {
                                                 <SelectValue placeholder={isLoadingData ? "Đang tải dịch vụ..." : "Chọn dịch vụ"} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {services.map(s => (
+                                                {services.map((s: Service) => (
                                                     <SelectItem key={s.id} value={s.id}>
                                                         {s.ten_dich_vu} ({new Intl.NumberFormat('vi-VN').format(Number(s.gia_co_ban))}đ/{s.don_vi_tinh})
                                                     </SelectItem>
@@ -245,30 +177,15 @@ export default function CreateOrderPage() {
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-3">
-                                            {/* Chọn Tỉnh */}
-                                            <Select value={selectedAddress.province} onValueChange={(val) => setSelectedAddress({ ...selectedAddress, province: val, district: "", ward: "" })}>
-                                                <SelectTrigger><SelectValue placeholder="Chọn Tỉnh / Thành phố" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {provinces.map(p => <SelectItem key={p.code} value={p.name}>{p.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-
-                                            {/* Chọn Huyện */}
-                                            <Select value={selectedAddress.district} onValueChange={(val) => setSelectedAddress({ ...selectedAddress, district: val, ward: "" })} disabled={!selectedAddress.province}>
-                                                <SelectTrigger><SelectValue placeholder="Chọn Quận / Huyện" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {districts.map(d => <SelectItem key={d.code} value={d.name}>{d.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-
-                                            {/* Chọn Xã */}
-                                            <Select value={selectedAddress.ward} onValueChange={(val) => setSelectedAddress({ ...selectedAddress, ward: val })} disabled={!selectedAddress.district}>
-                                                <SelectTrigger><SelectValue placeholder="Chọn Phường / Xã" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {wards.map(w => <SelectItem key={w.code} value={w.name}>{w.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-
+                                            <AddressSelector
+                                                province={selectedAddress.province}
+                                                district={selectedAddress.district}
+                                                ward={selectedAddress.ward}
+                                                onProvinceChange={(val) => setSelectedAddress({ ...selectedAddress, province: val, district: "", ward: "" })}
+                                                onDistrictChange={(val) => setSelectedAddress({ ...selectedAddress, district: val, ward: "" })}
+                                                onWardChange={(val) => setSelectedAddress({ ...selectedAddress, ward: val })}
+                                                className="grid-cols-1 md:grid-cols-3"
+                                            />
                                             <Input placeholder="Số nhà, tên đường..." value={selectedAddress.detail} onChange={e => setSelectedAddress({ ...selectedAddress, detail: e.target.value })} required />
                                         </div>
                                     </div>
@@ -278,10 +195,23 @@ export default function CreateOrderPage() {
                             <Card>
                                 <CardHeader><CardTitle>2. Thanh toán</CardTitle></CardHeader>
                                 <CardContent>
+                                    <div className="space-y-2">
+                                        <Label>Cước phí thanh toán bởi</Label>
+                                        <Select value={payer} onValueChange={setPayer}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="SENDER">Người gửi trả</SelectItem>
+                                                <SelectItem value="RECEIVER">Người nhận trả</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
                                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="COD">Thu hộ (COD)</SelectItem>
+                                            <SelectItem value="COD">Thu hộ (COD) & Tiền mặt</SelectItem>
                                             <SelectItem value="ONLINE" className="text-blue-600 font-medium">💳 Chuyển khoản (VietQR)</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -317,9 +247,36 @@ export default function CreateOrderPage() {
                                         </div>
                                     </div>
 
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Dài (cm)</Label>
+                                            <Input type="number" placeholder="0" value={item.length} onChange={e => setItem({ ...item, length: e.target.value })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Rộng (cm)</Label>
+                                            <Input type="number" placeholder="0" value={item.width} onChange={e => setItem({ ...item, width: e.target.value })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Cao (cm)</Label>
+                                            <Input type="number" placeholder="0" value={item.height} onChange={e => setItem({ ...item, height: e.target.value })} />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2 pt-2 border-t">
+                                        <Label className="text-blue-600 font-bold">Số tiền thu hộ (COD)</Label>
+                                        <Input
+                                            type="number"
+                                            placeholder="Nhập số tiền cần tài xế thu hộ..."
+                                            value={item.codAmount}
+                                            onChange={e => setItem({ ...item, codAmount: e.target.value })}
+                                            className="border-blue-200 focus:border-blue-500"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground italic">* Để trống nếu không thu hộ tiền hàng</p>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label>Ghi chú</Label>
-                                        <Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú cho tài xế..." />
+                                        <Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú cho tài xế (VD: Hàng dễ vỡ, gọi trước khi giao...)" />
                                     </div>
                                 </CardContent>
                             </Card>

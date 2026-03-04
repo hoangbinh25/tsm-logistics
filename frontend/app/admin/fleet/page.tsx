@@ -15,6 +15,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { fleetService } from "@/services/fleet.service"
 
 export default function FleetPage() {
   const [vehicles, setVehicles] = useState<any[]>([])
@@ -48,36 +49,22 @@ export default function FleetPage() {
 
   // 1. Fetch dữ liệu từ API
   const fetchVehicles = async () => {
-    const token = sessionStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/fleet`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setVehicles(data)
-      }
+      const data = await fleetService.getAll()
+      setVehicles(data)
     } catch (error) {
       console.error("Lỗi tải danh sách xe:", error)
     }
   }
 
   const handleCheckMaintenance = async () => {
-    const token = sessionStorage.getItem("accessToken")
     setIsLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/fleet/check-maintenance`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      const data = await res.json()
-      if (res.ok) {
-        alert(`Kiểm tra xong! Có ${data.count} xe cần bảo dưỡng. Hệ thống đã gửi thông báo cho quản lý.`)
-        fetchVehicles()
-      } else {
-        alert(data.message || "Lỗi kiểm tra")
-      }
+      const data = await fleetService.checkMaintenance()
+      alert(`Kiểm tra xong! Có ${data.count} xe cần bảo dưỡng. Hệ thống đã gửi thông báo cho quản lý.`)
+      fetchVehicles()
     } catch (error) {
-      alert("Lỗi kết nối")
+      alert("Lỗi kiểm tra hoặc lỗi kết nối")
     } finally {
       setIsLoading(false)
     }
@@ -128,33 +115,19 @@ export default function FleetPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    const token = sessionStorage.getItem("accessToken")
-    const url = currentVehicle
-      ? `${process.env.NEXT_PUBLIC_API_URL}/fleet/${currentVehicle.id}`
-      : `${process.env.NEXT_PUBLIC_API_URL}/fleet`
-    const method = currentVehicle ? "PUT" : "POST"
-
     try {
-      const res = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      })
-
-      if (res.ok) {
-        alert(currentVehicle ? "Cập nhật thành công!" : "Thêm xe mới thành công!")
-        setIsModalOpen(false)
-        fetchVehicles() // Load lại bảng
+      if (currentVehicle) {
+        await fleetService.update(currentVehicle.id, formData)
+        alert("Cập nhật thành công!")
       } else {
-        const err = await res.json()
-        alert(err.message || "Có lỗi xảy ra")
+        await fleetService.create(formData)
+        alert("Thêm xe mới thành công!")
       }
-    } catch (error) {
+      setIsModalOpen(false)
+      fetchVehicles() // Load lại bảng
+    } catch (error: any) {
       console.error(error)
-      alert("Lỗi kết nối server")
+      alert(error?.response?.data?.message || "Lỗi kết nối server hoặc có lỗi xảy ra")
     } finally {
       setIsLoading(false)
     }
@@ -163,45 +136,25 @@ export default function FleetPage() {
   // 4. Xử lý Xóa
   const handleMaintain = async (id: string) => {
     if (!confirm("Xác nhận đã bảo dưỡng xong cho phương tiện này?")) return
-    const token = sessionStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/fleet/${id}/maintain`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      if (res.ok) {
-        alert("Xác nhận bảo dưỡng thành công")
-        fetchVehicles()
-      } else {
-        alert("Có lỗi xảy ra")
-      }
+      await fleetService.confirmMaintenance(id)
+      alert("Xác nhận bảo dưỡng thành công")
+      fetchVehicles()
     } catch (error) {
-      alert("Lỗi server")
+      alert("Lỗi server hoặc có lỗi xảy ra")
     }
   }
 
   const handleUpdateLocation = async () => {
     if (!currentVehicle || !newLocation) return
     setIsLoading(true)
-    const token = sessionStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/fleet/${currentVehicle.id}/location`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ location: newLocation })
-      })
-      if (res.ok) {
-        alert("Cập nhật vị trí thành công!")
-        setIsLocationModalOpen(false)
-        fetchVehicles()
-      } else {
-        alert("Có lỗi xảy ra")
-      }
+      await fleetService.updateLocation(currentVehicle.id, newLocation)
+      alert("Cập nhật vị trí thành công!")
+      setIsLocationModalOpen(false)
+      fetchVehicles()
     } catch (error) {
-      alert("Lỗi kết nối")
+      alert("Lỗi kết nối hoặc có lỗi xảy ra")
     } finally {
       setIsLoading(false)
     }
@@ -209,21 +162,13 @@ export default function FleetPage() {
 
   const handleDelete = async () => {
     if (!currentVehicle) return
-    const token = sessionStorage.getItem("accessToken")
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/fleet/${currentVehicle.id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      if (res.ok) {
-        alert("Đã xóa phương tiện")
-        setIsDeleteAlertOpen(false)
-        fetchVehicles()
-      } else {
-        alert("Không thể xóa phương tiện này")
-      }
+      await fleetService.delete(currentVehicle.id)
+      alert("Đã xóa phương tiện")
+      setIsDeleteAlertOpen(false)
+      fetchVehicles()
     } catch (error) {
-      alert("Lỗi server")
+      alert("Lỗi server không thể xóa phương tiện này")
     }
   }
 

@@ -7,30 +7,38 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Search, Plus, MapPin, Package, Edit, Trash2
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useWarehouses, useWarehouseMutations } from "@/hooks/use-warehouses"
+import { Warehouse } from "@/types/warehouse"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { AddressSelector } from "@/components/address-selector"
+import { StatsCard } from "@/components/stats-card"
+import { useToast } from "@/hooks/use-toast"
 
 export default function WarehousePage() {
-  const [warehouses, setWarehouses] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
+
+  // Data logic với custom hooks
+  const { data: warehouses = [], isLoading: isFetching } = useWarehouses()
+  const { createMutation, updateMutation, deleteMutation } = useWarehouseMutations()
 
   // State Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
-  const [currentWarehouse, setCurrentWarehouse] = useState<any>(null)
+  const [currentWarehouse, setCurrentWarehouse] = useState<Warehouse | null>(null)
 
   // Form Data
   const [formData, setFormData] = useState({
     ma_kho: "",
     ten_kho: "",
     dia_chi: "",
-    tinh_thanh: "Hà Nội", // Giá trị mặc định
+    tinh_thanh: "",
     quan_huyen: "",
     phuong_xa: "",
     loai_kho: "KHO_CHINH",
@@ -39,25 +47,8 @@ export default function WarehousePage() {
     ghi_chu: ""
   })
 
-  // 1. Fetch dữ liệu
-  const fetchWarehouses = async () => {
-    const token = sessionStorage.getItem("accessToken")
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setWarehouses(data)
-      }
-    } catch (error) {
-      console.error("Lỗi tải danh sách kho:", error)
-    }
-  }
-
-  useEffect(() => {
-    fetchWarehouses()
-  }, [])
+  // Trạng thái loading chung cho các action
+  const isSubmitting = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending
 
   // 2. Mở Modal Thêm mới
   const openAddModal = () => {
@@ -70,7 +61,7 @@ export default function WarehousePage() {
   }
 
   // 3. Mở Modal Sửa
-  const openEditModal = (wh: any) => {
+  const openEditModal = (wh: Warehouse) => {
     setCurrentWarehouse(wh)
     setFormData({
       ma_kho: wh.ma_kho,
@@ -80,7 +71,7 @@ export default function WarehousePage() {
       quan_huyen: wh.quan_huyen,
       phuong_xa: wh.phuong_xa,
       loai_kho: wh.loai_kho,
-      suc_chua_toi_da: wh.suc_chua_toi_da,
+      suc_chua_toi_da: wh.suc_chua_toi_da.toString(),
       trang_thai: wh.trang_thai,
       ghi_chu: wh.ghi_chu || ""
     })
@@ -90,66 +81,39 @@ export default function WarehousePage() {
   // 4. Submit Form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    const token = sessionStorage.getItem("accessToken")
-
-    // URL & Method tùy thuộc vào đang thêm hay sửa
-    const url = currentWarehouse
-      ? `${process.env.NEXT_PUBLIC_API_URL}/warehouses/${currentWarehouse.id}`
-      : `${process.env.NEXT_PUBLIC_API_URL}/warehouses`
-    const method = currentWarehouse ? "PUT" : "POST"
-
-    try {
-      const res = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+    if (currentWarehouse) {
+      updateMutation.mutate({ id: currentWarehouse.id, data: formData }, {
+        onSuccess: () => {
+          toast({ title: "Thành công", description: "Cập nhật kho hàng thành công" })
+          setIsModalOpen(false)
         },
-        body: JSON.stringify(formData)
+        onError: (error: any) => toast({ title: "Lỗi", description: error.message, variant: "destructive" })
       })
-
-      if (res.ok) {
-        alert(currentWarehouse ? "Cập nhật thành công!" : "Thêm kho mới thành công!")
-        setIsModalOpen(false)
-        fetchWarehouses()
-      } else {
-        const err = await res.json()
-        alert(err.message || "Có lỗi xảy ra")
-      }
-    } catch (error) {
-      alert("Lỗi kết nối server")
-    } finally {
-      setIsLoading(false)
+    } else {
+      createMutation.mutate(formData, {
+        onSuccess: () => {
+          toast({ title: "Thành công", description: "Thêm kho mới thành công" })
+          setIsModalOpen(false)
+        },
+        onError: (error: any) => toast({ title: "Lỗi", description: error.message, variant: "destructive" })
+      })
     }
   }
 
   // 5. Xóa Kho
   const handleDelete = async () => {
     if (!currentWarehouse) return
-    const token = sessionStorage.getItem("accessToken")
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/warehouses/${currentWarehouse.id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-
-      const data = await res.json()
-
-      if (res.ok) {
-        alert("Đã xóa kho hàng")
+    deleteMutation.mutate(currentWarehouse.id, {
+      onSuccess: () => {
+        toast({ title: "Thành công", description: "Đã xóa kho hàng" })
         setIsDeleteAlertOpen(false)
-        fetchWarehouses()
-      } else {
-        alert(data.message || "Không thể xóa kho này")
-      }
-    } catch (error) {
-      alert("Lỗi server")
-    }
+      },
+      onError: (error: any) => toast({ title: "Lỗi", description: error.message, variant: "destructive" })
+    })
   }
 
   // Local Filter
-  const filteredWarehouses = warehouses.filter(wh =>
+  const filteredWarehouses = warehouses.filter((wh) =>
     wh.ten_kho.toLowerCase().includes(searchTerm.toLowerCase()) ||
     wh.ma_kho.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -169,21 +133,18 @@ export default function WarehousePage() {
 
       {/* Stats Cards (Tính toán từ dữ liệu thật) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 border rounded-xl bg-card shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between">
-            <div><p className="text-sm text-muted-foreground">Tổng số kho</p><h3 className="text-2xl font-bold">{warehouses.length}</h3></div>
-            <div className="p-2 bg-primary/10 rounded-lg"><MapPin className="w-5 h-5 text-primary" /></div>
-          </div>
-          <div className="mt-4 text-xs text-muted-foreground">
-            <span className="text-emerald-600 font-medium">{warehouses.filter(w => w.loai_kho === 'KHO_CHINH').length} kho chính</span>
-          </div>
-        </div>
-        <div className="p-4 border rounded-xl bg-card shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between">
-            <div><p className="text-sm text-muted-foreground">Đang hoạt động</p><h3 className="text-2xl font-bold text-emerald-600">{warehouses.filter(w => w.trang_thai === 'HOAT_DONG').length}</h3></div>
-            <div className="p-2 bg-emerald-100 rounded-lg"><Package className="w-5 h-5 text-emerald-600" /></div>
-          </div>
-        </div>
+        <StatsCard
+          label="Tổng số kho"
+          value={warehouses.length}
+          icon={MapPin}
+          description={`${warehouses.filter((w) => w.loai_kho === 'KHO_CHINH').length} kho chính`}
+        />
+        <StatsCard
+          label="Đang hoạt động"
+          value={warehouses.filter((w) => w.trang_thai === 'HOAT_DONG').length}
+          icon={Package}
+          iconClassName="bg-emerald-100 text-emerald-600"
+        />
       </div>
 
       {/* Table */}
@@ -207,7 +168,9 @@ export default function WarehousePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-background">
-              {filteredWarehouses.length > 0 ? (
+              {isFetching ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Đang tải dữ liệu...</td></tr>
+              ) : filteredWarehouses.length > 0 ? (
                 filteredWarehouses.map((wh) => (
                   <tr key={wh.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 font-mono font-medium text-primary">{wh.ma_kho}</td>
@@ -275,25 +238,19 @@ export default function WarehousePage() {
               <Input required placeholder="Số nhà, đường..." value={formData.dia_chi} onChange={e => setFormData({ ...formData, dia_chi: e.target.value })} />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Tỉnh / Thành</Label>
-                <Input required value={formData.tinh_thanh} onChange={e => setFormData({ ...formData, tinh_thanh: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Quận / Huyện</Label>
-                <Input required value={formData.quan_huyen} onChange={e => setFormData({ ...formData, quan_huyen: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Phường / Xã</Label>
-                <Input required value={formData.phuong_xa} onChange={e => setFormData({ ...formData, phuong_xa: e.target.value })} />
-              </div>
-            </div>
+            <AddressSelector
+              province={formData.tinh_thanh}
+              district={formData.quan_huyen}
+              ward={formData.phuong_xa}
+              onProvinceChange={(val: string) => setFormData({ ...formData, tinh_thanh: val, quan_huyen: "", phuong_xa: "" })}
+              onDistrictChange={(val: string) => setFormData({ ...formData, quan_huyen: val, phuong_xa: "" })}
+              onWardChange={(val: string) => setFormData({ ...formData, phuong_xa: val })}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Loại Kho</Label>
-                <Select value={formData.loai_kho} onValueChange={(val) => setFormData({ ...formData, loai_kho: val })}>
+                <Select value={formData.loai_kho} onValueChange={(val: string) => setFormData({ ...formData, loai_kho: val })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="KHO_CHINH">Kho Chính</SelectItem>
@@ -304,7 +261,7 @@ export default function WarehousePage() {
               </div>
               <div className="space-y-2">
                 <Label>Trạng Thái</Label>
-                <Select value={formData.trang_thai} onValueChange={(val) => setFormData({ ...formData, trang_thai: val })}>
+                <Select value={formData.trang_thai} onValueChange={(val: string) => setFormData({ ...formData, trang_thai: val })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
@@ -327,7 +284,7 @@ export default function WarehousePage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-              <Button type="submit" disabled={isLoading}>{isLoading ? "Đang lưu..." : "Lưu thông tin"}</Button>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Đang lưu..." : "Lưu thông tin"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -345,7 +302,9 @@ export default function WarehousePage() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteAlertOpen(false)}>Hủy</Button>
-            <Button variant="destructive" onClick={handleDelete}>Xóa ngay</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
+              {deleteMutation.isPending ? "Đang xóa..." : "Xóa ngay"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

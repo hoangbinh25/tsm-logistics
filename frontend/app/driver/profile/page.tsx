@@ -10,11 +10,12 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { AddressSelector } from "@/components/address-selector"
+import { fetchWithAuth } from "@/utils/api"
 
 export default function DriverProfilePage() {
-    const { user, logout, http, updateProfile } = useAuth()
+    const { user, logout, updateProfile } = useAuth()
     const router = useRouter()
     const { toast } = useToast()
 
@@ -33,49 +34,6 @@ export default function DriverProfilePage() {
         detail: ""
     })
 
-    // State cho API Tỉnh/Thành
-    const [provinces, setProvinces] = useState<any[]>([])
-    const [districts, setDistricts] = useState<any[]>([])
-    const [wards, setWards] = useState<any[]>([])
-
-    // Fetch Tỉnh/Thành
-    useEffect(() => {
-        fetch("https://provinces.open-api.vn/api/p/")
-            .then(res => res.json())
-            .then(data => setProvinces(data))
-            .catch(err => console.error("Lỗi fetch tỉnh:", err))
-    }, [])
-
-    // Fetch Quận/Huyện khi chọn Tỉnh
-    useEffect(() => {
-        if (!selectedAddress.province) {
-            setDistricts([])
-            return
-        }
-        const provinceCode = provinces.find(p => p.name === selectedAddress.province)?.code
-        if (provinceCode) {
-            fetch(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`)
-                .then(res => res.json())
-                .then(data => setDistricts(data.districts))
-                .catch(err => console.error("Lỗi fetch huyện:", err))
-        }
-    }, [selectedAddress.province, provinces])
-
-    // Fetch Phường/Xã khi chọn Huyện
-    useEffect(() => {
-        if (!selectedAddress.district) {
-            setWards([])
-            return
-        }
-        const districtCode = districts.find(d => d.name === selectedAddress.district)?.code
-        if (districtCode) {
-            fetch(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`)
-                .then(res => res.json())
-                .then(data => setWards(data.wards))
-                .catch(err => console.error("Lỗi fetch xã:", err))
-        }
-    }, [selectedAddress.district, districts])
-
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsSubmitting(true)
@@ -91,7 +49,7 @@ export default function DriverProfilePage() {
                 dia_chi: fullAddress
             }
 
-            const res = await http(`${process.env.NEXT_PUBLIC_API_URL}/users/profile`, {
+            const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/users/profile`, {
                 method: "PUT",
                 body: JSON.stringify(payload)
             })
@@ -156,20 +114,15 @@ export default function DriverProfilePage() {
 
                                     <div className="space-y-3 pt-2 border-t">
                                         <Label className="font-semibold">Cập nhật địa chỉ mới (nếu cần)</Label>
-                                        <Select value={selectedAddress.province} onValueChange={(val) => setSelectedAddress({ ...selectedAddress, province: val, district: "", ward: "" })}>
-                                            <SelectTrigger><SelectValue placeholder="Chọn Tỉnh / Thành phố" /></SelectTrigger>
-                                            <SelectContent>{provinces.map(p => <SelectItem key={p.code} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
-                                        </Select>
-
-                                        <Select value={selectedAddress.district} onValueChange={(val) => setSelectedAddress({ ...selectedAddress, district: val, ward: "" })} disabled={!selectedAddress.province}>
-                                            <SelectTrigger><SelectValue placeholder="Chọn Quận / Huyện" /></SelectTrigger>
-                                            <SelectContent>{districts.map(d => <SelectItem key={d.code} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
-                                        </Select>
-
-                                        <Select value={selectedAddress.ward} onValueChange={(val) => setSelectedAddress({ ...selectedAddress, ward: val })} disabled={!selectedAddress.district}>
-                                            <SelectTrigger><SelectValue placeholder="Chọn Phường / Xã" /></SelectTrigger>
-                                            <SelectContent>{wards.map(w => <SelectItem key={w.code} value={w.name}>{w.name}</SelectItem>)}</SelectContent>
-                                        </Select>
+                                        <AddressSelector
+                                            className="grid-cols-1 sm:grid-cols-3"
+                                            province={selectedAddress.province}
+                                            district={selectedAddress.district}
+                                            ward={selectedAddress.ward}
+                                            onProvinceChange={(val) => setSelectedAddress({ ...selectedAddress, province: val, district: "", ward: "" })}
+                                            onDistrictChange={(val) => setSelectedAddress({ ...selectedAddress, district: val, ward: "" })}
+                                            onWardChange={(val) => setSelectedAddress({ ...selectedAddress, ward: val })}
+                                        />
 
                                         <Input placeholder="Số nhà, tên đường..." value={selectedAddress.detail} onChange={e => setSelectedAddress({ ...selectedAddress, detail: e.target.value })} />
                                     </div>

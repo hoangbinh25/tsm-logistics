@@ -35,18 +35,19 @@ export async function loginService(payload: LoginRequest): Promise<LoginResponse
             },
         },
     });
-    if (!user || !user.mat_khau_ma_hoa) {
-        throw new Error("Email hoặc mật khẩu không chính xác");
+    if (!user) {
+        throw new Error("Tài khoản chưa đăng ký");
     }
+    if (!user.mat_khau_ma_hoa) {
+        throw new Error("Mật khẩu không tồn tại");
+    }
+
 
     if (user.trang_thai_tai_khoan === "LOCKED" || user.so_lan_dang_nhap_sai >= MAX_LOGIN_ATTEMPTS) {
         throw new Error("Tài khoản đã bị khóa do đăng nhập sai nhiều lần. Vui lòng liên hệ Admin");
     }
 
     // verify password
-    if (!user.mat_khau_ma_hoa) {
-        throw new Error("Invalid password");
-    }
     const isPasswordValid = await bcrypt.compare(password, user.mat_khau_ma_hoa);
     if (!isPasswordValid) {
         await prisma.nguoiDung.update({
@@ -122,19 +123,19 @@ export async function registerService(payload: RegisterRequest): Promise<Registe
 
     // Check phone number
     const existingUser = await prisma.nguoiDung.findUnique({
-        where: {so_dien_thoai: so_dien_thoai}
+        where: { so_dien_thoai: so_dien_thoai }
     });
-    
-    if(existingUser) {
+
+    if (existingUser) {
         throw new Error("Số điện thoại đã được đăng ký!");
     }
 
     // Check email
     const existingEmail = await prisma.nguoiDung.findUnique({
-        where: {email: email}
+        where: { email: email }
     });
 
-    if(existingEmail) {
+    if (existingEmail) {
         throw new Error("Email đã được đăng ký!");
     }
 
@@ -189,11 +190,11 @@ export async function loginGoogleService(token: string): Promise<LoginResponse> 
             Authorization: `Bearer ${token}`
         }
     });
-    
+
     if (!googleResponse.ok) {
         throw new Error("Invalid Google Access Token");
     }
-        
+
     const payload = await googleResponse.json();
 
     const email = payload.email.toLowerCase();
@@ -273,58 +274,88 @@ export async function loginGoogleService(token: string): Promise<LoginResponse> 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 export const requestPasswordReset = async (email: string) => {
-  // 1. Check user tồn tại
-  const user = await prisma.nguoiDung.findUnique({ where: { email } });
-  if (!user) throw new Error("Email không tồn tại trong hệ thống");
+    // 1. Check user tồn tại
+    const user = await prisma.nguoiDung.findUnique({ where: { email } });
+    if (!user) throw new Error("Email không tồn tại trong hệ thống");
 
-  // 2. Xóa các OTP cũ của email này
-  await prisma.passwordResetToken.deleteMany({ where: { email } });
+    // 2. Xóa các OTP cũ của email này
+    await prisma.passwordResetToken.deleteMany({ where: { email } });
 
-  // 3. Tạo OTP mới
-  const otp = generateOTP();
-  const expiresAt = new Date(Date.now() + 1 * 60 * 1000); // Hết hạn sau 1 phút
+    // 3. Tạo OTP mới
+    const otp = generateOTP();
+    const expiresAt = new Date(Date.now() + 1 * 60 * 1000); // Hết hạn sau 1 phút
 
-  // 4. Lưu vào DB
-  await prisma.passwordResetToken.create({
-    data: {
-      email,
-      token: otp,
-      expiresAt
-    }
-  });
+    // 4. Lưu vào DB
+    await prisma.passwordResetToken.create({
+        data: {
+            email,
+            token: otp,
+            expiresAt
+        }
+    });
 
-  // 5. Gửi mail (Không await để trả về response nhanh hơn nếu muốn)
-  await sendOTPEmail(email, otp);
+    // 5. Gửi mail (Không await để trả về response nhanh hơn nếu muốn)
+    await sendOTPEmail(email, otp);
 
-  return { message: "Mã OTP đã được gửi đến email của bạn" };
+    return { message: "Mã OTP đã được gửi đến email của bạn" };
 };
 
 export const verifyOTP = async (email: string, otp: string) => {
-  const record = await prisma.passwordResetToken.findFirst({
-    where: { email, token: otp }
-  });
+    const record = await prisma.passwordResetToken.findFirst({
+        where: { email, token: otp }
+    });
 
-  if (!record) throw new Error("Mã OTP không chính xác");
-  if (new Date() > record.expiresAt) throw new Error("Mã OTP đã hết hạn");
+    if (!record) throw new Error("Mã OTP không chính xác");
+    if (new Date() > record.expiresAt) throw new Error("Mã OTP đã hết hạn");
 
-  return { valid: true };
+    return { valid: true };
 };
 
 export const resetPassword = async (email: string, otp: string, newPass: string) => {
-  // 1. Verify lại lần cuối cho chắc
-  await verifyOTP(email, otp);
+    // 1. Verify lại lần cuối cho chắc
+    await verifyOTP(email, otp);
 
-  // 2. Hash mật khẩu mới
-  const hashedPassword = await bcrypt.hash(newPass, 10);
+    // 2. Hash mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPass, 10);
 
-  // 3. Cập nhật User
-  await prisma.nguoiDung.update({
-    where: { email },
-    data: { mat_khau_ma_hoa: hashedPassword }
-  });
+    // 3. Cập nhật User
+    await prisma.nguoiDung.update({
+        where: { email },
+        data: { mat_khau_ma_hoa: hashedPassword }
+    });
 
-  // 4. Xóa OTP đã dùng
-  await prisma.passwordResetToken.deleteMany({ where: { email } });
+    // 4. Xóa OTP đã dùng
+    await prisma.passwordResetToken.deleteMany({ where: { email } });
 
-  return { message: "Đổi mật khẩu thành công" };
+    return { message: "Đổi mật khẩu thành công" };
 };
+
+export async function refreshTokenService(refreshToken: string) {
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as any;
+
+        const user = await prisma.nguoiDung.findUnique({
+            where: { id: decoded.sub }
+        });
+
+        if (!user || user.trang_thai_tai_khoan !== "ACTIVE") {
+            throw new Error("User not found or inactive");
+        }
+
+        const accessToken = jwt.sign(
+            { sub: user.id, role: user.vai_tro },
+            process.env.JWT_ACCESS_SECRET as string,
+            { expiresIn: "1h" }
+        );
+
+        const newRefreshToken = jwt.sign(
+            { sub: user.id, role: user.vai_tro },
+            process.env.JWT_REFRESH_SECRET as string,
+            { expiresIn: "7d" }
+        );
+
+        return { accessToken, refreshToken: newRefreshToken };
+    } catch (error) {
+        throw new Error("Invalid refresh token");
+    }
+}

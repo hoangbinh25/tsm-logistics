@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google"
 import { useAuth } from "@/context/AuthContext"
+import { apiClient } from "@/services/api.client"
+
 export default function LoginPage() {
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID"}>
@@ -33,19 +35,22 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!email) {
+      toast({ title: "Lỗi đăng nhập", description: "Vui lòng nhập email", variant: "destructive" })
+      return
+    }
+    if (!password) {
+      toast({ title: "Lỗi đăng nhập", description: "Vui lòng nhập mật khẩu", variant: "destructive" })
+      return
+    }
+
     setIsLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email, 
-          mat_khau: password
-         }),
+      const response = await apiClient.post('/auth/login', {
+        email,
+        mat_khau: password
       })
-      const data = await res.json()
-      
-      if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại")
+      const data = response.data
 
       login(data.user, data.accessToken, data.refreshToken)
 
@@ -54,64 +59,49 @@ function LoginForm() {
         description: `Xin chào ${data.user.ho_ten}`,
       })
 
-      //  Logic điều hướng (Routing)
-      const role = data.user.vai_tro; 
-      
-      if(role === "QUAN_LY") {
-         router.push("/admin")
-      } else if (role === "TAI_XE" || role === "DRIVER") {
-         router.push("/driver")
-      } else {
-         router.push("/") // Khách hàng
-      }
+      const role = data.user.vai_tro;
+      if (role === "QUAN_LY") router.push("/admin")
+      else if (role === "TAI_XE" || role === "DRIVER") router.push("/driver")
+      else router.push("/")
 
     } catch (error: any) {
       toast({
         title: "Lỗi đăng nhập",
-        description: error.message,
+        description: error.response?.data?.message || "Tài khoản hoặc mật khẩu không chính xác",
         variant: "destructive"
       })
     } finally {
       setIsLoading(false)
     }
-}
+  }
 
   const loginGoogle = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setIsLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login-google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: tokenResponse.access_token }),
+        const response = await apiClient.post('/auth/login-google', {
+          token: tokenResponse.access_token
         })
-        const data = await res.json()
-         if(res.ok) {
+        const data = response.data
+
         login(data.user, data.accessToken, data.refreshToken)
         toast({
           title: "Đăng nhập Google thành công",
           description: "Chào mừng bạn quay trở lại",
         })
         router.push("/")
-      }
-        if (!res.ok) throw new Error(data.message || "Đăng nhập Google thất bại")
-          
       } catch (error: any) {
         toast({
           title: "Lỗi đăng nhập Google",
-          description: error.message,
-          variant: "destructive"
+          description: error.response?.data?.message || "Đăng nhập Google thất bại",
+          variant: "destructive",
         })
       } finally {
         setIsLoading(false)
       }
     },
     onError: () => {
-      toast({
-        title: "Lỗi đăng nhập Google",
-        description: "Không thể kết nối với Google",
-        variant: "destructive"
-      })
+      toast({ title: "Lỗi đăng nhập Google", description: "Không thể kết nối với Google", variant: "destructive" })
     }
   });
 

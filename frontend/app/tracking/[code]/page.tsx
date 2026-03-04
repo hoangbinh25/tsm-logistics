@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Package, Truck, CheckCircle2, MapPin, Clock, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { Header } from "@/components/header" 
-import { Footer } from "@/components/footer" 
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
+import { fetchWithAuth } from "@/utils/api"
 
 // Map trạng thái sang các bước hiển thị
 const STEPS = [
     { status: 'TAO_MOI', label: 'Đơn mới', icon: Package },
-    { status: 'DA_PHAN_CONG', label: 'Đã phân công', icon: MapPin }, 
+    { status: 'DA_PHAN_CONG', label: 'Đã phân công', icon: MapPin },
     { status: 'DANG_VAN_CHUYEN', label: 'Đang giao', icon: Truck },
     { status: 'DA_GIAO', label: 'Đã giao', icon: CheckCircle2 },
 ]
@@ -28,7 +29,7 @@ export default function TrackingPage() {
         const fetchOrder = async () => {
             try {
                 // Gọi API Public vừa tạo
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/tracking/${code}`)
+                const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/tracking/${code}`)
                 if (res.ok) {
                     const data = await res.json()
                     setOrder(data.data)
@@ -41,7 +42,7 @@ export default function TrackingPage() {
                 setLoading(false)
             }
         }
-        if(code) fetchOrder()
+        if (code) fetchOrder()
     }, [code])
 
     // Helper: Xác định trạng thái hiện tại đang ở bước nào
@@ -55,7 +56,7 @@ export default function TrackingPage() {
     }
 
     if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>
-    
+
     if (error || !order) return (
         <div className="min-h-screen flex flex-col items-center justify-center gap-4">
             <h1 className="text-2xl font-bold text-red-600">Không tìm thấy đơn hàng</h1>
@@ -69,7 +70,7 @@ export default function TrackingPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <Header />
-            
+
             <main className="flex-1 container mx-auto py-10 px-4 max-w-3xl">
                 <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-blue-600 mb-6">
                     <ArrowLeft className="w-4 h-4 mr-1" /> Quay lại trang chủ
@@ -95,31 +96,29 @@ export default function TrackingPage() {
                         <CardContent className="pt-10 pb-10">
                             <div className="relative flex justify-between items-center w-full px-2 sm:px-10">
                                 {/* Thanh Progress Bar Nền */}
-                                <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 z-0 transform -translate-y-1/2 mx-10 sm:mx-14" style={{width: 'calc(100% - 5rem)'}} />
-                                
+                                <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 z-0 transform -translate-y-1/2 mx-10 sm:mx-14" style={{ width: 'calc(100% - 5rem)' }} />
+
                                 {/* Thanh Progress Bar Màu (Chạy theo tiến độ) */}
-                                <div 
-                                    className="absolute top-1/2 left-0 h-1 bg-green-500 z-0 transform -translate-y-1/2 transition-all duration-1000 mx-10 sm:mx-14" 
-                                    style={{ width: `calc(${(currentStep / (STEPS.length - 1)) * 100}% - 5rem)` }} 
+                                <div
+                                    className="absolute top-1/2 left-0 h-1 bg-green-500 z-0 transform -translate-y-1/2 transition-all duration-1000 mx-10 sm:mx-14"
+                                    style={{ width: `calc(${(currentStep / (STEPS.length - 1)) * 100}% - 5rem)` }}
                                 />
 
                                 {/* Các Nút Steps */}
                                 {STEPS.map((step, index) => {
                                     const isCompleted = index <= currentStep
                                     const isCurrent = index === currentStep
-                                    
+
                                     return (
                                         <div key={index} className="relative z-10 flex flex-col items-center">
-                                            <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
-                                                isCompleted 
-                                                    ? 'bg-green-500 border-green-200 text-white' 
+                                            <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${isCompleted
+                                                    ? 'bg-green-500 border-green-200 text-white'
                                                     : 'bg-white border-gray-200 text-gray-300'
-                                            }`}>
+                                                }`}>
                                                 <step.icon className="w-5 h-5 sm:w-7 sm:h-7" />
                                             </div>
-                                            <p className={`mt-3 text-xs sm:text-sm font-semibold whitespace-nowrap ${
-                                                isCurrent ? 'text-green-600' : isCompleted ? 'text-gray-700' : 'text-gray-400'
-                                            }`}>
+                                            <p className={`mt-3 text-xs sm:text-sm font-semibold whitespace-nowrap ${isCurrent ? 'text-green-600' : isCompleted ? 'text-gray-700' : 'text-gray-400'
+                                                }`}>
                                                 {step.label}
                                             </p>
                                         </div>

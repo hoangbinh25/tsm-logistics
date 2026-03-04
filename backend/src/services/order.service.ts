@@ -18,6 +18,7 @@ export interface CreateOrderParams {
     warehouseId: string;
     serviceId: string;
     paymentMethod: string;
+    payer: string; // SENDER | RECEIVER
     note?: string;
     items: any[];
 }
@@ -26,7 +27,16 @@ interface CreateOrderResult {
 }
 
 export const createOrderService = async (params: CreateOrderParams): Promise<CreateOrderResult> => {
-    const { userId, senderAddress, receiverInfo, warehouseId, serviceId, paymentMethod, note, items } = params;
+    const { userId, senderAddress, receiverInfo, warehouseId, serviceId, paymentMethod, payer, note, items } = params;
+
+    // --- BƯỚC 0: FETCH MASTER DATA ---
+    const [warehouse, service] = await Promise.all([
+        prisma.khoHang.findUnique({ where: { id: warehouseId } }),
+        prisma.dichVuVanChuyen.findUnique({ where: { id: serviceId } })
+    ]);
+
+    if (!warehouse) throw new Error("Kho hàng không tồn tại");
+    if (!service) throw new Error("Dịch vụ không tồn tại");
 
     // --- BƯỚC 1: TÍNH TOÁN TỔNG QUAN ---
     let totalWeight = 0;
@@ -37,10 +47,14 @@ export const createOrderService = async (params: CreateOrderParams): Promise<Cre
         totalPrice += Number(item.don_gia || 0) * Number(item.so_luong || 1);
     });
 
-    // Phí vận chuyển: 30k + 5k/kg (Ví dụ logic)
-    const shippingFee = 1000 + (totalWeight * 5000);
+    // Phí vận chuyển: Lấy từ giá cơ bản của dịch vụ + 5k/kg vượt (giả sử)
+    const basePrice = Number(service.gia_co_ban);
+    const shippingFee = basePrice + (totalWeight * 2000); // Ví dụ: giá cơ bản + 2k mỗi kg
 
     const totalPayment = totalPrice + shippingFee;
+
+    // Tính tổng tiền COD (thông thường lấy từ payload của order hoặc sum các items)
+    const totalCod = items.reduce((sum: number, item: any) => sum + Number(item.tien_cod || 0), 0);
 
     // Mã vận đơn: DH + 8 số cuối timestamp
     const orderCode = `DH${Date.now().toString().slice(-8)}`;
@@ -69,11 +83,19 @@ export const createOrderService = async (params: CreateOrderParams): Promise<Cre
 
                 trang_thai_don_hang: 'TAO_MOI',
                 hinh_thuc_thanh_toan: paymentMethod as HinhThucThanhToan,
+                nguoi_thanh_toan: payer === 'RECEIVER' ? 'NGUOI_NHAN' : 'NGUOI_GUI',
+                tien_cod: totalCod,
                 ghi_chu: note || "",
                 thoi_gian_dat: new Date(),
             },
             include: {
-                khach_hang: { select: { email: true, ho_ten: true } }
+                khach_hang: { select: { email: true, ho_ten: true } },
+                kho_gui: true,
+                chi_tiet: {
+                    include: {
+                        dich_vu: true
+                    }
+                }
             }
         });
 
@@ -89,8 +111,9 @@ export const createOrderService = async (params: CreateOrderParams): Promise<Cre
                     so_luong: Number(item.so_luong),
                     don_vi_tinh: item.don_vi || "Kiện",
                     khoi_luong: Number(item.khoi_luong || item.weight),
-                    don_gia: Number(item.don_gia || item.value),
-                    thanh_tien: Number(item.don_gia || item.value) * Number(item.so_luong)
+                    don_gia: Number(item.don_gia || item.value || item.gia_tri),
+                    thanh_tien: Number(item.don_gia || item.value || item.gia_tri) * Number(item.so_luong),
+                    kich_thuoc: item.kich_thuoc || ""
                 }))
             });
         }
@@ -99,23 +122,19 @@ export const createOrderService = async (params: CreateOrderParams): Promise<Cre
     });
 
     // --- BƯỚC 3: PUSH SANG GHTK (NẾU CHỌN GHTK) ---
-    if (serviceId.includes('GHTK')) {
+    if (service.ma_dich_vu.includes('GHTK')) {
         try {
-            const warehouse = await prisma.khoHang.findUnique({ where: { id: warehouseId } });
-
-            // Giả định receiverInfo.address có định dạng "số nhà tên đường, phường xã, quận huyện, tỉnh thành"
-            // Hoặc frontend gửi thêm các trường rời. Ở đây ta lấy tạm:
             const addrParts = receiverInfo.address.split(',').map(s => s.trim());
             const province = addrParts[addrParts.length - 1];
             const district = addrParts[addrParts.length - 2];
 
             const ghtkOrder = await ghtkService.createGHTKOrder({
                 id: newOrder.ma_don_hang,
-                pick_name: warehouse?.ten_kho || "TSM Logistics",
+                pick_name: warehouse.ten_kho,
                 pick_tel: "0988888888",
-                pick_address: warehouse?.dia_chi || "",
-                pick_province: warehouse?.tinh_thanh || "",
-                pick_district: warehouse?.quan_huyen || "",
+                pick_address: warehouse.dia_chi,
+                pick_province: warehouse.tinh_thanh,
+                pick_district: warehouse.quan_huyen,
                 pick_money: paymentMethod === 'COD' ? totalPayment : 0,
                 tel: receiverInfo.phone,
                 name: receiverInfo.name,
@@ -253,15 +272,30 @@ export const getOrderByIdService = async (orderId: string) => {
     return await prisma.donHang.findUnique({
         where: { id: orderId },
         include: {
-            khach_hang: true, // Lấy thông tin người nhận
-            kho_gui: true,    // Lấy kho gửi
-            chi_tiet: true,   // Lấy danh sách hàng hóa bên trong
-            tai_xe: {         // Lấy thông tin tài xế (nếu cần hiển thị)
+            khach_hang: true,
+            kho_gui: true,
+            chi_tiet: true,
+            tai_xe: {
                 include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
             },
             phuong_tien: true,
         }
     });
+};
+
+const isCompatible = (license: string | null | undefined, weight: number, vehicleType: string | null | undefined) => {
+    if (!license) return false;
+    const l = license.toUpperCase();
+
+    if (vehicleType?.toLowerCase().includes("đầu kéo") || weight >= 15000) {
+        return l === "FC";
+    }
+
+    if (weight >= 3500) {
+        return ["C", "D", "E", "FC"].includes(l);
+    }
+
+    return ["B2", "C", "D", "E", "FC"].includes(l);
 };
 
 export const autoAssignDriverService = async (orderId: string) => {
@@ -276,81 +310,94 @@ export const autoAssignDriverService = async (orderId: string) => {
     const orderWeight = Number(order.tong_khoi_luong);
     const orderProvince = order.kho_gui.tinh_thanh; // VD: "Hà Nội"
 
-    // 2. Tìm XE phù hợp (Đủ tải + Đang rảnh)
-    const suitableVehicle = await prisma.phuongTien.findFirst({
+    // 2. Tìm XE rảnh đủ tải
+    const suitableVehicles = await prisma.phuongTien.findMany({
         where: {
-            trang_thai: 'SAN_SANG', // Chỉ lấy xe đang rảnh
-            tai_trong_toi_da: {
-                gte: orderWeight
-            }
+            trang_thai: 'SAN_SANG',
+            tai_trong_toi_da: { gte: orderWeight }
         },
-        orderBy: {
-            tai_trong_toi_da: 'asc' // Chọn xe nhỏ nhất vừa đủ để tiết kiệm
-        }
+        orderBy: { tai_trong_toi_da: 'asc' }
     });
 
-    if (!suitableVehicle) {
+    if (suitableVehicles.length === 0) {
         throw new Error(`Không tìm thấy xe tải trọng >= ${orderWeight}kg đang sẵn sàng.`);
     }
 
-    // 3. Tìm TÀI XẾ phù hợp (Profile Sẵn sàng + Cùng khu vực)
-    const suitableDriverProfile = await prisma.taiXeProfile.findFirst({
+    // 3. Tìm TÀI XẾ rảnh cùng khu vực
+    const suitableDrivers = await prisma.taiXeProfile.findMany({
         where: {
             trang_thai_cong_tac: 'DANG_HOAT_DONG',
             nguoi_dung: {
-                dia_chi: {
-                    contains: orderProvince
-                },
+                dia_chi: { contains: orderProvince },
                 trang_thai_tai_khoan: 'ACTIVE'
             }
         },
         include: { nguoi_dung: true }
     });
 
-    if (!suitableDriverProfile) {
-        throw new Error(`Có xe (${suitableVehicle.bien_kiem_soat}) nhưng không tìm thấy tài xế rảnh tại khu vực ${orderProvince}.`);
+    if (suitableDrivers.length === 0) {
+        throw new Error(`Không tìm thấy tài xế rảnh tại khu vực ${orderProvince}.`);
     }
 
-    // 4. Thực hiện Phân công (Transaction)
+    // 4. Tìm cặp Tài xế & Phương tiện Tương thích Hạng Bằng
+    let assignedVehicle = null;
+    let assignedDriverProfile = null;
+
+    for (const vehicle of suitableVehicles) {
+        for (const driver of suitableDrivers) {
+            if (isCompatible(driver.hang_bang_lai, Number(vehicle.tai_trong_toi_da), vehicle.loai_phuong_tien)) {
+                assignedVehicle = vehicle;
+                assignedDriverProfile = driver;
+                break;
+            }
+        }
+        if (assignedVehicle) break;
+    }
+
+    if (!assignedVehicle || !assignedDriverProfile) {
+        throw new Error(`Có xe và có tài xế nhưng không có cặp nào tương thích hạng bằng lái.`);
+    }
+
+    // 5. Thực hiện Phân công (Transaction)
     return await prisma.$transaction(async (tx) => {
 
-        // A. Cập nhật Đơn hàng (QUAN TRỌNG NHẤT ĐỂ HIỆN LÊN ADMIN)
+        // A. Cập nhật Đơn hàng
         await tx.donHang.update({
             where: { id: orderId },
             data: {
-                tai_xe_id: suitableDriverProfile.id,
-                phuong_tien_id: suitableVehicle.id,
+                tai_xe_id: assignedDriverProfile.id,
+                phuong_tien_id: assignedVehicle.id,
                 trang_thai_don_hang: 'DA_PHAN_CONG',
                 thoi_gian_cap_nhat: new Date()
             }
         });
 
-        // B. Update Tài xế -> BẬN (Để không bị gán đơn khác)
+        // B. Update Tài xế -> BẬN
         await tx.taiXeProfile.update({
-            where: { id: suitableDriverProfile.id },
+            where: { id: assignedDriverProfile.id },
             data: { trang_thai_cong_tac: 'TAM_NGUNG' }
         });
 
         // C. Update Xe -> HOẠT ĐỘNG
         await tx.phuongTien.update({
-            where: { id: suitableVehicle.id },
+            where: { id: assignedVehicle.id },
             data: { trang_thai: 'DANG_VAN_CHUYEN' }
         });
 
-        // D. Tạo thông báo cho App Tài xế (Để tài xế nhận được tin)
+        // D. Tạo thông báo cho App Tài xế
         await tx.thongBao.create({
             data: {
-                nguoi_nhan_id: suitableDriverProfile.nguoi_dung_id,
+                nguoi_nhan_id: assignedDriverProfile.nguoi_dung_id,
                 tieu_de: "Đơn hàng mới (Tự động)!",
-                noi_dung: `Bạn vừa được hệ thống gán đơn hàng #${order.ma_don_hang}. Vui lòng kiểm tra.`,
+                noi_dung: `Bạn vừa được hệ thống gán đơn hàng #${order.ma_don_hang}. Xe: ${assignedVehicle.bien_kiem_soat}. Vui lòng kiểm tra.`,
                 loai_thong_bao: "ORDER"
             }
         });
 
         return {
             message: "Phân công tự động thành công",
-            driver: suitableDriverProfile.nguoi_dung?.ho_ten,
-            vehicle: suitableVehicle.bien_kiem_soat
+            driver: assignedDriverProfile.nguoi_dung?.ho_ten,
+            vehicle: assignedVehicle.bien_kiem_soat
         };
     });
 };
@@ -363,30 +410,40 @@ export const assignOrderService = async (orderId: string, userIdOrDriverId: stri
 
     // 2. Tìm ID Tài xế chuẩn
     let finalDriverId = userIdOrDriverId;
+    let driverRef: any = null;
 
     // Kiểm tra xem ID này có tồn tại trong bảng TaiXe không
     const driverExists = await prisma.taiXeProfile.findUnique({
         where: { id: userIdOrDriverId }
     });
+    driverRef = driverExists;
 
     if (!driverExists) {
-        // Nếu không phải ID Tài xế, thử tìm xem có phải ID Người dùng không
         const driverByUserId = await prisma.taiXeProfile.findFirst({
             where: { nguoi_dung_id: userIdOrDriverId }
         });
 
         if (driverByUserId) {
-            finalDriverId = driverByUserId.id; // Tìm thấy ID Tài xế thật
+            finalDriverId = driverByUserId.id;
+            driverRef = driverByUserId;
         } else {
             throw new Error("Người dùng này chưa đăng ký hồ sơ Tài xế hoặc ID không hợp lệ.");
         }
     }
 
-    // 3. Thực hiện Update với ID chuẩn vừa tìm được
+    // 3. Kiểm tra tính tương thích hạng bằng lái
+    const vehicle = await prisma.phuongTien.findUnique({ where: { id: vehicleId } });
+    if (!vehicle) throw new Error("Không tìm thấy phương tiện.");
+
+    if (!isCompatible(driverRef.hang_bang_lai, Number(vehicle.tai_trong_toi_da), vehicle.loai_phuong_tien)) {
+        throw new Error(`Hạng bằng lái ${driverRef.hang_bang_lai} của tài xế không đủ điều kiện điều khiển phương tiện này.`);
+    }
+
+    // 4. Thực hiện Update với ID chuẩn vừa tìm được
     return await prisma.donHang.update({
         where: { id: orderId },
         data: {
-            tai_xe_id: finalDriverId, // Dùng ID chuẩn
+            tai_xe_id: finalDriverId,
             phuong_tien_id: vehicleId,
             trang_thai_don_hang: 'DA_PHAN_CONG',
             thoi_gian_cap_nhat: new Date()
@@ -419,7 +476,7 @@ export const getDriverTasksService = async (userId: string) => {
         },
         include: {
             kho_gui: true,   // Để lấy địa chỉ lấy hàng
-            khach_hang: {    // Để lấy tên/sdt người gửi (nếu cần)
+            khach_hang: {    // Để lấy tên/sdt người gửi
                 select: { ho_ten: true, so_dien_thoai: true }
             }
         },

@@ -40,6 +40,12 @@ enum TrangThaiDonHang {
 
 enum HinhThucThanhToan {
   COD
+  ONLINE
+}
+
+enum NguoiThanhToan {
+  NGUOI_GUI
+  NGUOI_NHAN
 }
 
 enum TrangThaiPhuongTien {
@@ -144,7 +150,6 @@ model NguoiDung {
 
   don_hang_khach        DonHang[]         @relation("DonHang_KhachHang")
   don_hang_nguoi_tao    DonHang[]         @relation("DonHang_NguoiTao")
-  thanh_toan            ThanhToan[]
   phan_cong_tai_xe      PhanCongDonHang[] @relation("PhanCong_TaiXe")
 
   thong_bao             ThongBao[]
@@ -211,6 +216,8 @@ model DonHang {
   thoi_gian_hoan_thanh   DateTime?
   ghi_chu                String?
   ma_van_don_ngoai       String?           // Mã vận đơn từ GHTK, GHN, v.v.
+  nguoi_thanh_toan       NguoiThanhToan    @default(NGUOI_GUI)
+  tien_cod               Decimal?          @db.Decimal(14,2) @default(0)
   thoi_gian_tao          DateTime          @default(now())
   thoi_gian_cap_nhat     DateTime          @updatedAt
 
@@ -220,7 +227,6 @@ model DonHang {
   kho_nhan               KhoHang?          @relation("KhoNhan", fields: [kho_nhan_id], references: [id])
 
   chi_tiet               ChiTietDonHang[]
-  thanh_toan             ThanhToan[]
   phan_cong              PhanCongDonHang[]
   su_co                  SuCo[]
 
@@ -247,6 +253,7 @@ model ChiTietDonHang {
   khoi_luong         Decimal          @db.Decimal(14,2)
   don_gia            Decimal          @db.Decimal(14,2)
   thanh_tien         Decimal          @db.Decimal(14,2)
+  kich_thuoc         String?           // Định dạng: DxRxC
   thoi_gian_tao      DateTime         @default(now())
   thoi_gian_cap_nhat DateTime         @updatedAt
 
@@ -257,27 +264,6 @@ model ChiTietDonHang {
   @@index([ma_dich_vu])
 }
 
-model ThanhToan {
-  id                String    @id @db.Char(26)
-  don_hang_id        String    @db.Char(26)
-  khach_hang_id      String    @db.Char(26)
-  so_tien            Decimal   @db.Decimal(14,2)
-  phuong_thuc        HinhThucThanhToan
-  trang_thai         TrangThaiThanhToan @default(PENDING)
-  ma_giao_dich          String?            @unique
-  nha_cung_cap          String?            
-  noi_dung_thanh_toan   String?            
-  thoi_gian_thanh_toan  DateTime?          
-  thoi_gian_tao      DateTime  @default(now())
-  thoi_gian_cap_nhat DateTime  @updatedAt
-
-  don_hang          DonHang   @relation(fields: [don_hang_id], references: [id])
-  khach_hang        NguoiDung @relation(fields: [khach_hang_id], references: [id])
-
-  @@index([don_hang_id])
-  @@index([khach_hang_id])
-  @@index([trang_thai])
-}
 
 model PhuongTien {
   id                   String              @id @db.Char(26)

@@ -76,12 +76,9 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
         if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-        // Validate cơ bản (Có thể tách ra middleware riêng nếu muốn gọn nữa)
         if (!body.receiverInfo?.phone || !body.warehouseId || !body.serviceId) {
             return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
         }
-
-        // 2. Gọi Service xử lý TẤT CẢ nghiệp vụ
         const result = await orderService.createOrderService({
             userId,
             userEmail,
@@ -114,7 +111,7 @@ export const autoAssign = async (req: Request, res: Response) => {
 export const assignOrder = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { tai_xe_id, phuong_tien_id } = req.body; // Lấy dữ liệu từ body
+        const { tai_xe_id, phuong_tien_id } = req.body;
 
         if (!tai_xe_id || !phuong_tien_id) {
             return res.status(400).json({ message: "Thiếu thông tin tài xế hoặc xe" });
