@@ -220,3 +220,32 @@ export const getOrderById = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Lỗi hệ thống" });
     }
 };
+
+export const cancelOrder = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.sub;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Vui lòng đăng nhập" });
+        }
+
+        await orderService.cancelOrderService(id, userId);
+
+        res.status(200).json({ message: "Hủy đơn hàng thành công" });
+    } catch (error: any) {
+        console.error("Cancel Order Error:", error);
+
+        if (error.message === "ORDER_NOT_FOUND") {
+            return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+        }
+        if (error.message === "FORBIDDEN") {
+            return res.status(403).json({ message: "Bạn không có quyền hủy đơn hàng này" });
+        }
+        if (error.message === "STATUS_NOT_CANCELABLE") {
+            return res.status(400).json({ message: "Không thể hủy đơn hàng ở trạng thái này" });
+        }
+
+        res.status(500).json({ message: "Lỗi hệ thống" });
+    }
+};

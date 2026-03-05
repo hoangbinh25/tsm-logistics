@@ -29,5 +29,9 @@ export const orderService = {
     switchToCod: async (id: string) => {
         const { data } = await apiClient.post(`/orders/${id}/switch-cod`, {});
         return data;
+    },
+    cancel: async (id: string) => {
+        const { data } = await apiClient.post(`/orders/${id}/cancel`, {});
+        return data;
     }
 };

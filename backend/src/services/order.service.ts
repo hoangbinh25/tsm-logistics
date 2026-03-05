@@ -230,7 +230,8 @@ export const getOrdersService = async ({ userId, role, type }: GetOrdersParams) 
                     }
                 }
             },
-            phuong_tien: true
+            phuong_tien: true,
+            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } }
         }
     });
 };
@@ -247,7 +248,8 @@ export const getTrackingOrderService = async (code: string, viewerId: string, ro
             tai_xe: {
                 include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
             },
-            phuong_tien: true
+            phuong_tien: true,
+            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } }
         }
     });
 
@@ -279,6 +281,7 @@ export const getOrderByIdService = async (orderId: string) => {
                 include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
             },
             phuong_tien: true,
+            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } }
         }
     });
 };
@@ -595,6 +598,59 @@ export const updateOrderStatusService = async (orderId: string, newStatus: strin
     if (newStatus === 'DA_GIAO' || newStatus === 'HUY') {
         checkMaintenanceAndNotify().catch(err => console.error("Maintenance check error:", err));
     }
+
+    return { success: true };
+};
+
+export const cancelOrderService = async (orderId: string, userId: string) => {
+    // 1. Get the order
+    const order = await prisma.donHang.findUnique({
+        where: { id: orderId }
+    });
+
+    if (!order) {
+        throw new Error("ORDER_NOT_FOUND");
+    }
+
+    // 2. Check ownership
+    if (order.khach_hang_id !== userId) {
+        throw new Error("FORBIDDEN");
+    }
+
+    // 3. Check if cancelable
+    const uncancelableStatuses = ['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG'];
+    if (uncancelableStatuses.includes(order.trang_thai_don_hang)) {
+        throw new Error("STATUS_NOT_CANCELABLE");
+    }
+
+    // 4. Update status and free resources
+    await prisma.$transaction(async (tx) => {
+        await tx.donHang.update({
+            where: { id: orderId },
+            data: {
+                trang_thai_don_hang: 'DA_HUY',
+                thoi_gian_cap_nhat: new Date()
+            }
+        });
+
+        // Mở khóa tài xế
+        if (order.tai_xe_id) {
+            await tx.taiXeProfile.update({
+                where: { id: order.tai_xe_id },
+                data: { trang_thai_cong_tac: 'DANG_HOAT_DONG' }
+            });
+        }
+
+        // Mở khóa phương tiện
+        if (order.phuong_tien_id) {
+            await tx.phuongTien.update({
+                where: { id: order.phuong_tien_id },
+                data: { trang_thai: 'SAN_SANG' }
+            });
+        }
+    });
+
+    checkMaintenanceAndNotify().catch(err => console.error("Maintenance check error:", err));
 
     return { success: true };
 };

@@ -43,6 +43,12 @@ enum HinhThucThanhToan {
   ONLINE
 }
 
+enum TrangThaiThanhToan {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 enum NguoiThanhToan {
   NGUOI_GUI
   NGUOI_NHAN
@@ -229,6 +235,7 @@ model DonHang {
   chi_tiet               ChiTietDonHang[]
   phan_cong              PhanCongDonHang[]
   su_co                  SuCo[]
+  thanh_toan             ThanhToan[]
 
   tai_xe_id       String?  // Cho phép null (vì đơn mới chưa có tài xế)
   tai_xe          TaiXeProfile? @relation(fields: [tai_xe_id], references: [id])
@@ -390,4 +397,20 @@ model SuCo {
   @@index([tai_xe_id])
   @@index([don_hang_id])
   @@index([phuong_tien_id])
+}
+
+model ThanhToan {
+  id               String             @id @default(cuid())
+  don_hang_id      String             @db.Char(26)
+  so_tien          Decimal            @db.Decimal(14,2)
+  phuong_thuc      String             @default("VNPAY")
+  trang_thai       TrangThaiThanhToan @default(PENDING)
+  ma_giao_dich     String?            
+  ngan_hang        String?
+  thoi_gian_tao    DateTime           @default(now())
+  thoi_gian_cap_nhat DateTime         @updatedAt
+
+  don_hang         DonHang            @relation(fields: [don_hang_id], references: [id])
+
+  @@index([don_hang_id])
 }

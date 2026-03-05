@@ -101,21 +101,14 @@ export default function CreateOrderPage() {
 
         createMutation.mutate(payload, {
             onSuccess: (data: any) => {
-                if (data.paymentUrl) {
-                    toast({
-                        title: "Đơn hàng đã được khởi tạo",
-                        description: "Đang mở thông tin thanh toán...",
-                        className: "bg-blue-50 text-blue-900"
-                    })
-                    router.push(`/orders/${data.data.id}`)
-                } else {
-                    toast({
-                        title: "Tạo đơn thành công!",
-                        description: `Mã vận đơn: ${data.data.ma_don_hang}.`,
-                        className: "bg-green-50 border-green-200 text-green-900"
-                    })
-                    router.push("/orders")
-                }
+                toast({
+                    title: "Tạo đơn thành công!",
+                    description: `Mã vận đơn: ${data.data.ma_don_hang}.`,
+                    className: "bg-green-50 border-green-200 text-green-900"
+                })
+
+                // Nếu chọn ONLINE, chuyển thẳng đến trang chi tiết để họ thấy nút VNPay
+                router.push(`/orders/${data.data.id}`)
             },
             onError: (error: any) => {
                 toast({ title: "Tạo đơn thất bại", description: error.message, variant: "destructive" })
@@ -212,11 +205,11 @@ export default function CreateOrderPage() {
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="COD">Thu hộ (COD) & Tiền mặt</SelectItem>
-                                            <SelectItem value="ONLINE" className="text-blue-600 font-medium">💳 Chuyển khoản (VietQR)</SelectItem>
+                                            <SelectItem value="ONLINE" className="text-blue-600 font-medium">💳 Thanh toán qua VNPay</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <div className="mt-4 p-3 bg-slate-50 rounded text-sm text-muted-foreground border">
-                                        {paymentMethod === 'ONLINE' && "Bạn sẽ thanh toán qua mã VietQR tự động sau khi tạo đơn."}
+                                        {paymentMethod === 'ONLINE' && "Bạn sẽ được chuyển đến chi tiết đơn hàng để thực hiện thanh toán trực tuyến qua VNPay."}
                                         {paymentMethod === 'COD' && "Thanh toán cho tài xế khi nhận hàng."}
                                     </div>
                                 </CardContent>

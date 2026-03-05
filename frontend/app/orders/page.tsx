@@ -1,6 +1,6 @@
 "use client"
 
-import { useOrders } from "@/hooks/use-orders"
+import { useOrders, useOrderMutations } from "@/hooks/use-orders"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Header } from "@/components/header"
@@ -61,8 +61,22 @@ export default function MyOrdersPage() {
 
     // 2. Fetch API lấy danh sách với React Query Hooks
     const { data: dataResponse, isLoading } = useOrders()
+    const { cancelMutation } = useOrderMutations()
 
     const orders = Array.isArray(dataResponse?.data) ? dataResponse.data : (Array.isArray(dataResponse) ? dataResponse : [])
+
+    const handleCancel = (id: string) => {
+        if (window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này không?")) {
+            cancelMutation.mutate(id, {
+                onSuccess: () => {
+                    alert("Hủy đơn hàng thành công!");
+                },
+                onError: (error: any) => {
+                    alert(error.response?.data?.message || "Có lỗi xảy ra khi hủy đơn hàng");
+                }
+            })
+        }
+    }
 
     return (
         <div className="min-h-screen flex flex-col bg-slate-50">
@@ -154,7 +168,21 @@ export default function MyOrdersPage() {
                                                         {status.label}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="text-right flex items-center justify-end gap-2">
+                                                    {!['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG'].includes(order.trang_thai_don_hang) && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            className="h-8 bg-red-500 hover:bg-red-600"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                handleCancel(order.id);
+                                                            }}
+                                                            disabled={cancelMutation.isPending}
+                                                        >
+                                                            Hủy đơn
+                                                        </Button>
+                                                    )}
                                                     <Link href={`/orders/${order.id}`}>
                                                         <Button variant="outline" size="sm" className="h-8">
                                                             Chi tiết

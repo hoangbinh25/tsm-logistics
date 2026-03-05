@@ -44,5 +44,13 @@ export const useOrderMutations = () => {
         }
     })
 
-    return { createMutation, switchCodMutation }
+    const cancelMutation = useMutation({
+        mutationFn: (id: string) => orderService.cancel(id),
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: ['orders'] })
+            queryClient.invalidateQueries({ queryKey: ['order', id] })
+        }
+    })
+
+    return { createMutation, switchCodMutation, cancelMutation }
 }

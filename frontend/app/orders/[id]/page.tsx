@@ -51,21 +51,31 @@ export default function OrderDetailPage() {
     }
 
     // 3. Mutations
-    const { switchCodMutation } = useOrderMutations()
+    const { switchCodMutation, cancelMutation } = useOrderMutations()
+
+    const handleCancel = async () => {
+        if (!confirm("Bạn có chắc chắn muốn hủy đơn hàng này không?")) return
+        cancelMutation.mutate(id as string, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: "Hủy đơn hàng thành công" })
+                refetchOrder()
+            },
+            onError: (error: any) => toast({ title: "Lỗi", description: error.response?.data?.message || "Có lỗi xảy ra", variant: "destructive" })
+        })
+    }
 
     const handlePayment = async () => {
         setIsProcessing(true)
         try {
             const data = await orderService.getPaymentLink(id as string)
-            setPaymentUrl(data.paymentUrl)
-            setIsQRModalOpen(true)
+            // Chuyển hướng người dùng qua cổng thanh toán VNPay
+            window.location.href = data.paymentUrl;
         } catch (error: any) {
             toast({
                 title: "Lỗi",
                 description: error.message || "Không thể lấy link thanh toán",
                 variant: "destructive"
             })
-        } finally {
             setIsProcessing(false)
         }
     }
@@ -271,7 +281,7 @@ export default function OrderDetailPage() {
                                             onClick={handlePayment}
                                             disabled={isProcessing}
                                         >
-                                            <QrCode className="w-4 h-4" /> Thanh toán QR
+                                            <CreditCard className="w-4 h-4" /> Thanh toán qua VNPay
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -311,6 +321,26 @@ export default function OrderDetailPage() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* Hành động thêm: Hủy đơn hàng */}
+                        {!['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG'].includes(order.trang_thai_don_hang) && (
+                            <Card className="border-red-200 bg-red-50/30">
+                                <CardHeader>
+                                    <CardTitle className="text-base text-red-700">Hủy đơn hàng</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-red-600 mb-4">Bạn chỉ có thể hủy khi đơn hàng chưa được giao thành công.</p>
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full bg-red-600 hover:bg-red-700"
+                                        onClick={handleCancel}
+                                        disabled={cancelMutation.isPending}
+                                    >
+                                        {cancelMutation.isPending ? "Đang xử lý..." : "Hủy đơn hàng"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </div>
             </main>
