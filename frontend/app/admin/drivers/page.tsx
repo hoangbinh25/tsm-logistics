@@ -9,10 +9,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Eye, Check, X, Loader2 } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Eye, Check, X, Loader2, BarChart2, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { fetchWithAuth } from "@/utils/api"
+import { DriverPerformance } from "@/components/admin/driver-performance"
 
 export default function AdminDriversPage() {
   const { toast } = useToast()
@@ -146,54 +147,69 @@ export default function AdminDriversPage() {
           </DialogHeader>
 
           {selectedDriver && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-              {/* Cột thông tin */}
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-50 rounded-lg space-y-3">
-                  <h3 className="font-semibold border-b pb-2">Thông tin cá nhân</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-muted-foreground">Họ tên:</span> <span>{selectedDriver.nguoi_dung?.ho_ten}</span>
-                    <span className="text-muted-foreground">Email:</span> <span>{selectedDriver.nguoi_dung?.email}</span>
-                    <span className="text-muted-foreground">SĐT:</span> <span>{selectedDriver.nguoi_dung?.so_dien_thoai}</span>
-                    <span className="text-muted-foreground">Địa chỉ:</span> <span>{selectedDriver.nguoi_dung?.dia_chi || "Chưa cập nhật"}</span>
-                  </div>
-                </div>
+            <Tabs defaultValue="PROFILE" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="PROFILE" className="gap-2"><User className="w-4 h-4" /> Hồ sơ hồ sơ</TabsTrigger>
+                {selectedDriver.trang_thai_duyet === 'APPROVED' && (
+                  <TabsTrigger value="PERFORMANCE" className="gap-2"><BarChart2 className="w-4 h-4" /> Hiệu suất làm việc</TabsTrigger>
+                )}
+              </TabsList>
 
-                <div className="p-4 bg-slate-50 rounded-lg space-y-3">
-                  <h3 className="font-semibold border-b pb-2">Thông tin Bằng lái</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-muted-foreground">Số GPLX:</span> <span className="font-mono font-bold">{selectedDriver.so_giay_phep_lai_xe}</span>
-                    <span className="text-muted-foreground">Hạng:</span> <span>{selectedDriver.hang_bang_lai}</span>
-                    <span className="text-muted-foreground">Hết hạn:</span> <span>{new Date(selectedDriver.ngay_het_han_gplx).toLocaleDateString('vi-VN')}</span>
-                  </div>
-                </div>
-              </div>
+              <TabsContent value="PROFILE">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                  {/* Cột thông tin */}
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 rounded-lg space-y-3">
+                      <h3 className="font-semibold border-b pb-2">Thông tin cá nhân</h3>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="text-muted-foreground">Họ tên:</span> <span>{selectedDriver.nguoi_dung?.ho_ten}</span>
+                        <span className="text-muted-foreground">Email:</span> <span>{selectedDriver.nguoi_dung?.email}</span>
+                        <span className="text-muted-foreground">SĐT:</span> <span>{selectedDriver.nguoi_dung?.so_dien_thoai}</span>
+                        <span className="text-muted-foreground">Địa chỉ:</span> <span>{selectedDriver.nguoi_dung?.dia_chi || "Chưa cập nhật"}</span>
+                      </div>
+                    </div>
 
-              {/* Cột hình ảnh */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Ảnh chụp GPLX</h3>
-                <div className="space-y-4">
-                  <div className="relative border rounded-lg overflow-hidden group">
-                    <p className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Mặt trước</p>
-                    <img
-                      src={getLicenseImage(selectedDriver, 'GPLX_MAT_TRUOC')}
-                      alt="Mặt trước"
-                      className="w-full h-48 object-cover hover:scale-105 transition-transform cursor-pointer"
-                      onClick={() => window.open(getLicenseImage(selectedDriver, 'GPLX_MAT_TRUOC'), '_blank')}
-                    />
+                    <div className="p-4 bg-slate-50 rounded-lg space-y-3">
+                      <h3 className="font-semibold border-b pb-2">Thông tin Bằng lái</h3>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="text-muted-foreground">Số GPLX:</span> <span className="font-mono font-bold">{selectedDriver.so_giay_phep_lai_xe}</span>
+                        <span className="text-muted-foreground">Hạng:</span> <span>{selectedDriver.hang_bang_lai}</span>
+                        <span className="text-muted-foreground">Hết hạn:</span> <span>{new Date(selectedDriver.ngay_het_han_gplx).toLocaleDateString('vi-VN')}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative border rounded-lg overflow-hidden group">
-                    <p className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Mặt sau</p>
-                    <img
-                      src={getLicenseImage(selectedDriver, 'GPLX_MAT_SAU')}
-                      alt="Mặt sau"
-                      className="w-full h-48 object-cover hover:scale-105 transition-transform cursor-pointer"
-                      onClick={() => window.open(getLicenseImage(selectedDriver, 'GPLX_MAT_SAU'), '_blank')}
-                    />
+
+                  {/* Cột hình ảnh */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Ảnh chụp GPLX</h3>
+                    <div className="space-y-4">
+                      <div className="relative border rounded-lg overflow-hidden group">
+                        <p className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Mặt trước</p>
+                        <img
+                          src={getLicenseImage(selectedDriver, 'GPLX_MAT_TRUOC')}
+                          alt="Mặt trước"
+                          className="w-full h-48 object-cover hover:scale-105 transition-transform cursor-pointer"
+                          onClick={() => window.open(getLicenseImage(selectedDriver, 'GPLX_MAT_TRUOC'), '_blank')}
+                        />
+                      </div>
+                      <div className="relative border rounded-lg overflow-hidden group">
+                        <p className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Mặt sau</p>
+                        <img
+                          src={getLicenseImage(selectedDriver, 'GPLX_MAT_SAU')}
+                          alt="Mặt sau"
+                          className="w-full h-48 object-cover hover:scale-105 transition-transform cursor-pointer"
+                          onClick={() => window.open(getLicenseImage(selectedDriver, 'GPLX_MAT_SAU'), '_blank')}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="PERFORMANCE">
+                <DriverPerformance driverId={selectedDriver.id} />
+              </TabsContent>
+            </Tabs>
           )}
 
           <DialogFooter className="gap-2 sm:justify-between">

@@ -41,13 +41,33 @@ export const createPaymentUrl = async (req: any, order: any, amount: number) => 
     vnp_Params["vnp_IpAddr"] = ipAddr;
     vnp_Params["vnp_CreateDate"] = createDate;
 
-    vnp_Params = sortObject(vnp_Params);
+    const sortedKeys = Object.keys(vnp_Params).sort();
+    let signData = "";
+    const finalParams: any = {};
 
-    const signData = qs.stringify(vnp_Params, { encode: false });
+    sortedKeys.forEach((key) => {
+        const value = vnp_Params[key];
+        if (value !== undefined && value !== null && String(value).length > 0) {
+            if (signData.length > 0) signData += "&";
+            const encodedValue = encodeURIComponent(String(value)).replace(/%20/g, "+");
+            signData += encodeURIComponent(key) + "=" + encodedValue;
+            finalParams[key] = value; // Phục vụ việc tạo URL cuối cùng
+        }
+    });
+
     const hmac = crypto.createHmac("sha512", secretKey);
     const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
-    vnp_Params["vnp_SecureHash"] = signed;
-    vnpUrl += "?" + qs.stringify(vnp_Params, { encode: false });
+
+    // Gắn mã hash vào tham số
+    finalParams["vnp_SecureHash"] = signed;
+
+    // Tạo URL hoàn chỉnh
+    const query = Object.keys(finalParams)
+        .sort()
+        .map(key => encodeURIComponent(key) + "=" + encodeURIComponent(String(finalParams[key])).replace(/%20/g, "+"))
+        .join("&");
+
+    vnpUrl += "?" + query;
 
     return vnpUrl;
 };
@@ -57,14 +77,30 @@ export const verifyIpn = async (vnp_Params: any) => {
     delete vnp_Params["vnp_SecureHash"];
     delete vnp_Params["vnp_SecureHashType"];
 
-    vnp_Params = sortObject(vnp_Params);
+    // 1. Sắp xếp key
+    const sortedKeys = Object.keys(vnp_Params).sort();
 
+    // 2. Tạo chuỗi hashing
+    let signData = "";
+    sortedKeys.forEach((key) => {
+        const value = vnp_Params[key];
+        // VNPay 2.1.0: Bỏ qua các tham số rỗng
+        if (value !== undefined && value !== null && String(value).length > 0) {
+            if (signData.length > 0) signData += "&";
+            signData += encodeURIComponent(key) + "=" + encodeURIComponent(String(value)).replace(/%20/g, "+");
+        }
+    });
+
+    // 3. Hash
     const secretKey = process.env.VNP_HASH_SECRET?.trim() || "";
-    const signData = qs.stringify(vnp_Params, { encode: false });
     const hmac = crypto.createHmac("sha512", secretKey);
     const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
 
     if (secureHash !== signed) {
+        console.log("== VNPay Signature Mismatch ==");
+        console.log("SignData (Calculated):", signData);
+        console.log("Hash received:", secureHash);
+        console.log("Hash computed:", signed);
         throw new Error("Invalid signature");
     }
 

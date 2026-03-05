@@ -71,8 +71,8 @@ export const registerDriverService = async (params: RegisterDriverParams) => {
 
 // 1. Logic Lấy danh sách tài xế
 export const getAllDriversService = async (status?: string) => {
-    const whereCondition = status 
-        ? { trang_thai_duyet: status as TrangThaiDuyetTaiXe } 
+    const whereCondition = status
+        ? { trang_thai_duyet: status as TrangThaiDuyetTaiXe }
         : {};
 
     return await prisma.taiXeProfile.findMany({
@@ -108,10 +108,101 @@ export const verifyDriverService = async (driverId: string, status: string, reas
             });
             await tx.taiXeGiayTo.updateMany({
                 where: { tai_xe_id: driverId },
-                data: { trang_thai: 'ACCEPTED' } 
+                data: { trang_thai: 'ACCEPTED' }
             });
         }
 
         return updatedProfile;
     });
+};
+
+export const getDriverPerformanceService = async (driverId: string) => {
+    // 1. Thống kê đơn hàng
+    const orders = await prisma.donHang.findMany({
+        where: { tai_xe_id: driverId },
+        select: {
+            trang_thai_don_hang: true,
+            thoi_gian_du_kien_giao: true,
+            thoi_gian_hoan_thanh: true,
+            tong_thanh_toan: true,
+            thoi_gian_tao: true
+        }
+    });
+
+    const totalOrders = orders.length;
+    const completedOrders = orders.filter(o => o.trang_thai_don_hang === 'DA_GIAO').length;
+    const canceledOrders = orders.filter(o => o.trang_thai_don_hang === 'DA_HUY').length;
+
+    // Tính số đơn đúng hạn (Hoàn thành <= Dự kiến)
+    const onTimeOrders = orders.filter(o =>
+        o.trang_thai_don_hang === 'DA_GIAO' &&
+        o.thoi_gian_hoan_thanh &&
+        o.thoi_gian_du_kien_giao &&
+        o.thoi_gian_hoan_thanh <= o.thoi_gian_du_kien_giao
+    ).length;
+
+    // 2. Thống kê sự cố
+    const incidents = await prisma.suCo.findMany({
+        where: { tai_xe_id: driverId },
+        select: { loai_su_co: true }
+    });
+
+    const totalIncidents = incidents.length;
+    const incidentsByType = incidents.reduce((acc: any, curr) => {
+        acc[curr.loai_su_co] = (acc[curr.loai_su_co] || 0) + 1;
+        return acc;
+    }, {});
+
+    // 3. Tính toán các tỷ lệ
+    const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+    const punctualityRate = completedOrders > 0 ? (onTimeOrders / completedOrders) * 100 : 0;
+
+    // Tính tổng doanh thu đóng góp (đã giao)
+    const totalRevenue = orders
+        .filter(o => o.trang_thai_don_hang === 'DA_GIAO')
+        .reduce((sum, o) => sum + Number(o.tong_thanh_toan), 0);
+
+    // 4. Thống kê theo tháng (6 tháng gần nhất)
+    const last6Months: any[] = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const month = d.getMonth() + 1;
+        const year = d.getFullYear();
+
+        const monthOrders = orders.filter(o => {
+            const date = new Date(o.thoi_gian_tao);
+            return date.getMonth() + 1 === month && date.getFullYear() === year;
+        });
+
+        last6Months.push({
+            label: `${month}/${year}`,
+            orders: monthOrders.length,
+            completed: monthOrders.filter(o => o.trang_thai_don_hang === 'DA_GIAO').length
+        });
+    }
+
+    // 5. Tính điểm xếp hạng (Rating 1-5)
+    let rating = 0;
+    if (totalOrders > 0) {
+        const baseScore = (punctualityRate * 0.5 + completionRate * 0.5);
+        const penalty = (totalIncidents / totalOrders) * 50;
+        rating = Math.max(1, Math.min(5, (baseScore - penalty) / 20));
+    }
+
+    return {
+        summary: {
+            totalOrders,
+            completedOrders,
+            canceledOrders,
+            onTimeOrders,
+            totalIncidents,
+            completionRate: Math.round(completionRate),
+            punctualityRate: Math.round(punctualityRate),
+            totalRevenue,
+            rating: Number(rating.toFixed(1))
+        },
+        incidentsByType,
+        chartData: last6Months
+    };
 };

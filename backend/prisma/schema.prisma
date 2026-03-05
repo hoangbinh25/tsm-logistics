@@ -149,16 +149,52 @@ model NguoiDung {
   so_lan_dang_nhap_sai  Int               @default(0)
   trang_thai_tai_khoan  TrangThaiTaiKhoan @default(ACTIVE)
 
-  thoi_gian_tao         DateTime          @default(now())
-  thoi_gian_cap_nhat    DateTime          @updatedAt
-
   tai_xe_profile        TaiXeProfile?
+  khach_hang_profile    KhachHangProfile?
 
   don_hang_khach        DonHang[]         @relation("DonHang_KhachHang")
   don_hang_nguoi_tao    DonHang[]         @relation("DonHang_NguoiTao")
   phan_cong_tai_xe      PhanCongDonHang[] @relation("PhanCong_TaiXe")
 
   thong_bao             ThongBao[]
+  so_dia_chi            SoDiaChi[]
+
+  thoi_gian_tao         DateTime          @default(now())
+  thoi_gian_cap_nhat    DateTime          @updatedAt
+}
+
+model KhachHangProfile {
+  id                String   @id @db.Char(26)
+  nguoi_dung_id     String   @unique @db.Char(26)
+  
+  ma_so_thue        String?
+  ten_cong_ty       String?
+  han_muc_cong_no   Decimal  @default(0) @db.Decimal(14,2)
+  du_no_hien_tai    Decimal  @default(0) @db.Decimal(14,2)
+  
+  nguoi_dung        NguoiDung @relation(fields: [nguoi_dung_id], references: [id])
+  
+  thoi_gian_tao     DateTime @default(now())
+  thoi_gian_cap_nhat DateTime @updatedAt
+}
+
+model SoDiaChi {
+  id               String    @id @db.Char(26)
+  nguoi_dung_id     String    @db.Char(26)
+  ho_ten           String
+  so_dien_thoai     String
+  tinh_thanh       String
+  quan_huyen       String
+  phuong_xa         String
+  dia_chi_chi_tiet String
+  is_default        Boolean   @default(false)
+  
+  thoi_gian_tao     DateTime  @default(now())
+  thoi_gian_cap_nhat  DateTime @updatedAt
+  
+  nguoi_dung        NguoiDung @relation(fields: [nguoi_dung_id], references: [id])
+  
+  @@index([nguoi_dung_id])
 }
 
 model TaiXeProfile {

@@ -503,7 +503,7 @@ export const getOrderByCodeService = async (code: string) => {
 
 export const updateOrderStatusService = async (orderId: string, newStatus: string) => {
     // 1. Validation Logic
-    const validStatuses = ['DANG_LAY_HANG', 'DANG_VAN_CHUYEN', 'DA_GIAO', 'HUY'];
+    const validStatuses = ['TAO_MOI', 'CHO_XAC_NHAN', 'DA_PHAN_CONG', 'DANG_LAY_HANG', 'DANG_VAN_CHUYEN', 'DA_GIAO', 'HUY'];
     if (!validStatuses.includes(newStatus)) {
         throw new Error("INVALID_STATUS");
     }

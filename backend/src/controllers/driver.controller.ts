@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { getAllDriversService, registerDriverService, verifyDriverService } from '../services/driver.service';
+import { getAllDriversService, registerDriverService, verifyDriverService, getDriverPerformanceService } from '../services/driver.service';
 
 export const registerDriver = async (req: AuthRequest, res: Response) => {
     try {
@@ -50,12 +50,12 @@ export const registerDriver = async (req: AuthRequest, res: Response) => {
 export const getAllDrivers = async (req: AuthRequest, res: Response) => {
     try {
         const { status } = req.query; // Lấy filter từ query param ?status=PENDING
-        
+
         const drivers = await getAllDriversService(status as string);
 
-        res.status(200).json({ 
+        res.status(200).json({
             message: "Lấy danh sách thành công",
-            data: drivers 
+            data: drivers
         });
     } catch (error: any) {
         console.error("Get All Drivers Error:", error);
@@ -67,7 +67,7 @@ export const getAllDrivers = async (req: AuthRequest, res: Response) => {
 export const verifyDriver = async (req: AuthRequest, res: Response) => {
     try {
         const { driverId } = req.params;
-        const { status, reason } = req.body; 
+        const { status, reason } = req.body;
 
         // Validate cơ bản
         if (!['APPROVED', 'REJECTED'].includes(status)) {
@@ -80,13 +80,27 @@ export const verifyDriver = async (req: AuthRequest, res: Response) => {
         // Gọi Service
         await verifyDriverService(driverId, status, reason);
 
-        res.status(200).json({ 
-            message: `Hồ sơ đã được cập nhật sang trạng thái: ${status}` 
+        res.status(200).json({
+            message: `Hồ sơ đã được cập nhật sang trạng thái: ${status}`
         });
 
     } catch (error: any) {
         console.error("Verify Driver Error:", error);
         // Có thể bắt lỗi P2025 nếu không tìm thấy ID
         res.status(500).json({ message: "Lỗi xử lý hồ sơ: " + error.message });
+    }
+};
+
+export const getDriverPerformance = async (req: AuthRequest, res: Response) => {
+    try {
+        const { driverId } = req.params;
+        const performance = await getDriverPerformanceService(driverId);
+        res.status(200).json({
+            success: true,
+            data: performance
+        });
+    } catch (error: any) {
+        console.error("Get Driver Performance Error:", error);
+        res.status(500).json({ message: "Lỗi hệ thống: " + error.message });
     }
 };

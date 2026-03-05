@@ -61,17 +61,36 @@ export const vnpayIpn = async (req: Request, res: Response) => {
         const vnp_ResponseCode = verifiedParams["vnp_ResponseCode"];
         const ma_giao_dich = verifiedParams["vnp_TransactionNo"] as string;
 
+        console.log("VNPay IPN Received:", { orderCode, vnp_ResponseCode, ma_giao_dich });
+
         const order = await prisma.donHang.findUnique({
             where: { ma_don_hang: orderCode },
-            include: { thanh_toan: { where: { trang_thai: "PENDING" } } }
+            include: {
+                thanh_toan: {
+                    orderBy: { thoi_gian_tao: "desc" }
+                }
+            }
         });
 
-        if (!order) return res.status(200).json({ RspCode: "01", Message: "Order not found" });
+        if (!order) {
+            console.error("Order not found:", orderCode);
+            return res.status(200).json({ RspCode: "01", Message: "Order not found" });
+        }
 
-        const pendingPayment = order.thanh_toan[0];
-        if (!pendingPayment) return res.status(200).json({ RspCode: "02", Message: "Order already confirmed" });
+        const pendingPayment = order.thanh_toan.find(p => p.trang_thai === "PENDING") || order.thanh_toan[0];
+
+        if (!pendingPayment) {
+            console.error("No payment record found for order:", orderCode);
+            return res.status(200).json({ RspCode: "02", Message: "Payment record not found" });
+        }
+
+        // Nếu đã thành công rồi thì không xử lý lại (Idempotency)
+        if (pendingPayment.trang_thai === "SUCCESS") {
+            return res.status(200).json({ RspCode: "02", Message: "Order already confirmed" });
+        }
 
         if (Number(verifiedParams["vnp_Amount"]) !== Number(pendingPayment.so_tien) * 100) {
+            console.error("Invalid amount:", verifiedParams["vnp_Amount"], "Expected:", pendingPayment.so_tien);
             return res.status(200).json({ RspCode: "04", Message: "Invalid amount" });
         }
 
@@ -83,13 +102,11 @@ export const vnpayIpn = async (req: Request, res: Response) => {
                     data: { trang_thai: "SUCCESS", ma_giao_dich }
                 });
 
-                // Cập nhật trạng thái đơn hàng (Có thể là CHO_XAC_NHAN, v.v.)
-                if (order.trang_thai_don_hang === "TAO_MOI") {
-                    await tx.donHang.update({
-                        where: { id: order.id },
-                        data: { trang_thai_don_hang: "CHO_XAC_NHAN" }
-                    });
-                }
+                // Cập nhật trạng thái đơn hàng (CHO_XAC_NHAN)
+                await tx.donHang.update({
+                    where: { id: order.id },
+                    data: { trang_thai_don_hang: "CHO_XAC_NHAN" }
+                });
             });
         } else {
             // Thất bại
@@ -101,7 +118,7 @@ export const vnpayIpn = async (req: Request, res: Response) => {
 
         res.status(200).json({ RspCode: "00", Message: "Confirm Success" });
     } catch (error: any) {
-        console.error("VNPay IPN Error:", error);
-        res.status(200).json({ RspCode: "97", Message: "Invalid signature" });
+        console.error("VNPay IPN Error Stack:", error);
+        res.status(200).json({ RspCode: "97", Message: error.message || "Unknown error" });
     }
 };

@@ -16,7 +16,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       headers: headers as HeadersInit,
     });
 
-    if (response.status === 401) {
+    if (response.status === 401 && !(options as any).skipAuthCheck) {
       if (typeof window !== 'undefined') {
         // Xóa token cũ
         sessionStorage.removeItem("accessToken");

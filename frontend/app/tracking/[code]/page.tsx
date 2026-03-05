@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Package, Truck, CheckCircle2, MapPin, Clock, ArrowLeft } from "lucide-react"
+import { Package, Truck, CheckCircle2, MapPin, Clock, ArrowLeft, XCircle } from "lucide-react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -13,10 +13,11 @@ import { fetchWithAuth } from "@/utils/api"
 
 // Map trạng thái sang các bước hiển thị
 const STEPS = [
-    { status: 'TAO_MOI', label: 'Đơn mới', icon: Package },
+    { status: 'TAO_MOI', label: 'Chờ thanh toán', icon: Clock },
+    { status: 'CHO_XAC_NHAN', label: 'Đã thanh toán', icon: Package },
     { status: 'DA_PHAN_CONG', label: 'Đã phân công', icon: MapPin },
     { status: 'DANG_VAN_CHUYEN', label: 'Đang giao', icon: Truck },
-    { status: 'DA_GIAO', label: 'Đã giao', icon: CheckCircle2 },
+    { status: 'DA_GIAO', label: 'Hoàn thành', icon: CheckCircle2 },
 ]
 
 export default function TrackingPage() {
@@ -29,7 +30,9 @@ export default function TrackingPage() {
         const fetchOrder = async () => {
             try {
                 // Gọi API Public vừa tạo
-                const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/tracking/${code}`)
+                const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/tracking/${code}`, {
+                    skipAuthCheck: true
+                } as any)
                 if (res.ok) {
                     const data = await res.json()
                     setOrder(data.data)
@@ -48,10 +51,10 @@ export default function TrackingPage() {
     // Helper: Xác định trạng thái hiện tại đang ở bước nào
     const getCurrentStepIndex = (status: string) => {
         if (!status) return 0
-        // Logic mapping đơn giản (bạn có thể map kỹ hơn tuỳ enum trong DB)
-        if (status === 'DA_GIAO') return 3
-        if (status === 'DANG_VAN_CHUYEN') return 2
-        if (['DA_PHAN_CONG', 'DANG_LAY_HANG'].includes(status)) return 1
+        if (status === 'DA_GIAO') return 4
+        if (status === 'DANG_VAN_CHUYEN') return 3
+        if (['DA_PHAN_CONG', 'DANG_LAY_HANG'].includes(status)) return 2
+        if (status === 'CHO_XAC_NHAN') return 1
         return 0
     }
 
@@ -77,6 +80,16 @@ export default function TrackingPage() {
                 </Link>
 
                 <div className="space-y-6">
+                    {/* Banner Hủy (Nếu có) */}
+                    {order.trang_thai_don_hang === 'DA_HUY' && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
+                            <XCircle className="w-6 h-6" />
+                            <div>
+                                <p className="font-bold">Đơn hàng này đã bị hủy</p>
+                                <p className="text-sm">Đơn hàng đã dừng xử lý. Vui lòng liên hệ CSKH để biết thêm chi tiết.</p>
+                            </div>
+                        </div>
+                    )}
                     {/* Header đơn hàng */}
                     <div className="bg-blue-600 text-white p-6 rounded-t-xl shadow-lg flex justify-between items-center">
                         <div>
@@ -112,8 +125,8 @@ export default function TrackingPage() {
                                     return (
                                         <div key={index} className="relative z-10 flex flex-col items-center">
                                             <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${isCompleted
-                                                    ? 'bg-green-500 border-green-200 text-white'
-                                                    : 'bg-white border-gray-200 text-gray-300'
+                                                ? 'bg-green-500 border-green-200 text-white'
+                                                : 'bg-white border-gray-200 text-gray-300'
                                                 }`}>
                                                 <step.icon className="w-5 h-5 sm:w-7 sm:h-7" />
                                             </div>
@@ -146,21 +159,23 @@ export default function TrackingPage() {
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Chi tiết thanh toán</CardTitle></CardHeader>
-                            <CardContent className="space-y-3 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Hình thức</span>
-                                    <Badge variant="outline">{order.hinh_thuc_thanh_toan}</Badge>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Tổng thu (COD)</span>
-                                    <span className="font-bold text-lg text-red-600">
-                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.tong_thanh_toan)}
-                                    </span>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {!['DA_HUY', 'DA_GIAO', 'GIAO_KHONG_THANH_CONG'].includes(order.trang_thai_don_hang) && (
+                            <Card>
+                                <CardHeader><CardTitle className="text-base">Chi tiết thanh toán</CardTitle></CardHeader>
+                                <CardContent className="space-y-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Hình thức</span>
+                                        <Badge variant="outline">{order.hinh_thuc_thanh_toan}</Badge>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Tổng thu (COD)</span>
+                                        <span className="font-bold text-lg text-red-600">
+                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.tong_thanh_toan)}
+                                        </span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </div>
             </main>

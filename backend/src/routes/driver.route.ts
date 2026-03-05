@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { verifyToken } from '../middlewares/auth.middleware';
-import { upload } from '../middlewares/upload.middleware'; 
+import { upload } from '../middlewares/upload.middleware';
 import * as controller from '../controllers/driver.controller';
 
 const router = Router();
@@ -11,4 +11,5 @@ router.post('/register', verifyToken, upload.array('licenseImages', 2), controll
 // Admin
 router.get('/list', verifyToken, controller.getAllDrivers);
 router.put('/verify/:driverId', verifyToken, controller.verifyDriver);
+router.get('/:driverId/performance', verifyToken, controller.getDriverPerformance);
 export default router;

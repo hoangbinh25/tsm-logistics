@@ -21,13 +21,8 @@ export const getUsersService = async (role?: string) => {
 
     const users = await prisma.nguoiDung.findMany({
         where: whereCondition,
-        select: {
-            id: true,
-            ho_ten: true,
-            email: true,
-            so_dien_thoai: true,
-            vai_tro: true,
-            anh_dai_dien: true
+        include: {
+            khach_hang_profile: true
         },
         orderBy: { thoi_gian_tao: 'desc' }
     });
@@ -35,11 +30,29 @@ export const getUsersService = async (role?: string) => {
     return users;
 };
 
+export const getCustomerDetailService = async (id: string) => {
+    return await prisma.nguoiDung.findUnique({
+        where: { id },
+        include: {
+            khach_hang_profile: true,
+            so_dia_chi: {
+                orderBy: { is_default: 'desc' }
+            },
+            don_hang_khach: {
+                orderBy: { thoi_gian_tao: 'desc' },
+                include: {
+                    thanh_toan: true
+                }
+            }
+        }
+    });
+};
+
 export const updateProfileService = async (userId: string, data: any, avatarUrl?: string) => {
-    const phoneToSave = (data.so_dien_thoai && data.so_dien_thoai.trim() !== "") 
-                        ? data.so_dien_thoai 
-                        : null;
-    
+    const phoneToSave = (data.so_dien_thoai && data.so_dien_thoai.trim() !== "")
+        ? data.so_dien_thoai
+        : null;
+
     return await prisma.nguoiDung.update({
         where: { id: userId },
         data: {
@@ -47,7 +60,7 @@ export const updateProfileService = async (userId: string, data: any, avatarUrl?
             so_dien_thoai: phoneToSave,
             dia_chi: data.dia_chi,
             // Chỉ update nếu có link ảnh mới
-            ...(avatarUrl && { anh_dai_dien: avatarUrl }) 
+            ...(avatarUrl && { anh_dai_dien: avatarUrl })
         }
     });
 };

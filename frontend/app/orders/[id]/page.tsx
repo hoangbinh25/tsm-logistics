@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
-    ArrowLeft, Clock, MapPin, Truck, CheckCircle, Package, User, CreditCard, QrCode
+    ArrowLeft, Clock, MapPin, Truck, CheckCircle, Package, User, CreditCard, QrCode, XCircle
 } from "lucide-react"
 import { format } from "date-fns"
 import {
@@ -101,6 +101,21 @@ export default function OrderDetailPage() {
         ? new Date(order.thoi_gian_du_kien)
         : new Date(new Date(order.thoi_gian_tao).getTime() + 3 * 24 * 60 * 60 * 1000);
 
+    const getStatusConfig = (status: string) => {
+        switch (status) {
+            case 'TAO_MOI': return { label: 'Mới tạo', color: 'bg-blue-500' }
+            case 'CHO_XAC_NHAN': return { label: 'Chờ xử lý', color: 'bg-orange-500' }
+            case 'DA_PHAN_CONG': return { label: 'Đã phân công', color: 'bg-purple-600' }
+            case 'DANG_LAY_HANG': return { label: 'Đang lấy hàng', color: 'bg-amber-500' }
+            case 'DANG_VAN_CHUYEN': return { label: 'Đang giao', color: 'bg-indigo-600' }
+            case 'DA_GIAO': return { label: 'Đã giao', color: 'bg-emerald-600' }
+            case 'DA_HUY': return { label: 'Đã hủy', color: 'bg-red-600' }
+            default: return { label: status, color: 'bg-slate-500' }
+        }
+    }
+
+    const statusConfig = getStatusConfig(order.trang_thai_don_hang)
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             <Header />
@@ -111,12 +126,25 @@ export default function OrderDetailPage() {
                     <ArrowLeft className="w-4 h-4 mr-2" /> Quay lại danh sách
                 </Button>
 
+                {/* Banner Hủy (Nếu có) */}
+                {order.trang_thai_don_hang === 'DA_HUY' && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
+                        <XCircle className="w-6 h-6" />
+                        <div>
+                            <p className="font-bold">Đơn hàng đã bị hủy</p>
+                            <p className="text-sm">Đơn hàng này đã dừng xử lý và các chức năng thanh toán đã bị khóa.</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header đơn hàng */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-3">
                             Đơn hàng #{order.ma_don_hang}
-                            <Badge className="text-base px-3 py-1 bg-blue-600 hover:bg-blue-700">{order.trang_thai_don_hang}</Badge>
+                            <Badge className={`text-base px-3 py-1 ${statusConfig.color} border-none text-white`}>
+                                {statusConfig.label}
+                            </Badge>
                         </h1>
                         <p className="text-slate-500 mt-1">
                             Ngày đặt: {format(new Date(order.thoi_gian_tao), "dd/MM/yyyy HH:mm")}
@@ -238,63 +266,65 @@ export default function OrderDetailPage() {
 
                     {/* CỘT PHẢI: TÀI XẾ & THANH TOÁN */}
                     <div className="space-y-6">
-                        {/* Thanh toán */}
-                        <Card className={!isPaid && isOnline ? "border-orange-200 bg-orange-50/30" : ""}>
-                            <CardHeader>
-                                <CardTitle className="text-base flex justify-between items-center">
-                                    Thanh toán
-                                    {isPaid ? (
-                                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Đã thanh toán</Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="border-orange-300 text-orange-700">Chờ thanh toán</Badge>
-                                    )}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600">Phí vận chuyển</span>
-                                    <span>{new Intl.NumberFormat('vi-VN').format(order.phi_van_chuyen)} đ</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600">Tiền hàng (COD)</span>
-                                    <span>{new Intl.NumberFormat('vi-VN').format(order.tong_tien_hang)} đ</span>
-                                </div>
-                                <Separator />
-                                <div className="flex justify-between font-bold text-lg text-blue-700">
-                                    <span>Tổng cộng</span>
-                                    <span>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.tong_thanh_toan)}</span>
-                                </div>
-                                <div className="p-3 bg-white rounded-md border text-sm">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <CreditCard className="w-4 h-4 text-slate-400" />
-                                        <span className="font-medium">Phương thức: {order.hinh_thuc_thanh_toan}</span>
+                        {/* Thanh toán - Chỉ hiện nếu đơn chưa hủy và chưa hoàn thành */}
+                        {!['DA_HUY', 'DA_GIAO', 'GIAO_KHONG_THANH_CONG'].includes(order.trang_thai_don_hang) && (
+                            <Card className={!isPaid && isOnline ? "border-orange-200 bg-orange-50/30" : ""}>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex justify-between items-center">
+                                        Thanh toán
+                                        {isPaid ? (
+                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Đã thanh toán</Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="border-orange-300 text-orange-700">Chờ thanh toán</Badge>
+                                        )}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-600">Phí vận chuyển</span>
+                                        <span>{new Intl.NumberFormat('vi-VN').format(order.phi_van_chuyen)} đ</span>
                                     </div>
-                                    {!isPaid && (
-                                        <p className="text-xs text-slate-500">Mã đơn: {order.ma_don_hang}</p>
-                                    )}
-                                </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-600">Tiền hàng (COD)</span>
+                                        <span>{new Intl.NumberFormat('vi-VN').format(order.tong_tien_hang)} đ</span>
+                                    </div>
+                                    <Separator />
+                                    <div className="flex justify-between font-bold text-lg text-blue-700">
+                                        <span>Tổng cộng</span>
+                                        <span>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.tong_thanh_toan)}</span>
+                                    </div>
+                                    <div className="p-3 bg-white rounded-md border text-sm">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <CreditCard className="w-4 h-4 text-slate-400" />
+                                            <span className="font-medium">Phương thức: {order.hinh_thuc_thanh_toan}</span>
+                                        </div>
+                                        {!isPaid && (
+                                            <p className="text-xs text-slate-500">Mã đơn: {order.ma_don_hang}</p>
+                                        )}
+                                    </div>
 
-                                {!isPaid && isOnline && (
-                                    <div className="space-y-2 mt-4">
-                                        <Button
-                                            className="w-full bg-blue-600 hover:bg-blue-700 gap-2"
-                                            onClick={handlePayment}
-                                            disabled={isProcessing}
-                                        >
-                                            <CreditCard className="w-4 h-4" /> Thanh toán qua VNPay
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            onClick={handleSwitchToCOD}
-                                            disabled={isProcessing || switchCodMutation.isPending}
-                                        >
-                                            {switchCodMutation.isPending ? "Đang xử lý..." : "Chuyển sang COD"}
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                    {!isPaid && isOnline && (
+                                        <div className="space-y-2 mt-4">
+                                            <Button
+                                                className="w-full bg-blue-600 hover:bg-blue-700 gap-2"
+                                                onClick={handlePayment}
+                                                disabled={isProcessing}
+                                            >
+                                                <CreditCard className="w-4 h-4" /> Thanh toán qua VNPay
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={handleSwitchToCOD}
+                                                disabled={isProcessing || switchCodMutation.isPending}
+                                            >
+                                                {switchCodMutation.isPending ? "Đang xử lý..." : "Chuyển sang COD"}
+                                            </Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Thông tin tài xế (Chỉ hiện khi đã phân công) */}
                         <Card>

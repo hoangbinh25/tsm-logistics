@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import {
   Search, Eye, MoreHorizontal, Truck, XCircle, Zap,
-  Loader2
+  Loader2, CheckCircle
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
@@ -181,7 +181,29 @@ export default function OrderManagementPage() {
     } catch (error) { console.error(error) } finally { setIsLoading(false) }
   }
 
-  // 4. Xử lý Hủy đơn
+  // 5. Xử lý Xác nhận đơn
+  const handleConfirm = async (orderId: string) => {
+    setIsLoading(true)
+    try {
+      const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "CHO_XAC_NHAN" })
+      })
+
+      if (res.ok) {
+        toast({
+          title: "Đã xác nhận đơn hàng!",
+          description: `Đơn hàng đã được chuyển sang trạng thái Chờ xử lý.`,
+          className: "bg-green-600 text-white border-none",
+        })
+        fetchData()
+      } else {
+        toast({ variant: "destructive", title: "Thất bại", description: "Lỗi khi cập nhật trạng thái." })
+      }
+    } catch (error) { console.error(error) } finally { setIsLoading(false) }
+  }
+
+  // 6. Xử lý Hủy đơn
   const handleCancel = async () => {
     // Validate lý do
     if (!cancelReason.trim()) {
@@ -233,8 +255,10 @@ export default function OrderManagementPage() {
   // Helper render UI
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "TAO_MOI": return <Badge variant="outline" className="text-blue-600 border-blue-600">Mới tạo</Badge>
+      case "TAO_MOI": return <Badge variant="outline" className="text-blue-500 border-blue-500 bg-blue-50">Mới tạo</Badge>
+      case "CHO_XAC_NHAN": return <Badge variant="outline" className="text-orange-600 border-orange-600 bg-orange-50">Chờ xác nhận</Badge>
       case "DA_PHAN_CONG": return <Badge className="bg-purple-600">Đã phân công</Badge>
+      case "DANG_LAY_HANG": return <Badge className="bg-amber-500">Đang lấy hàng</Badge>
       case "DANG_VAN_CHUYEN": return <Badge className="bg-blue-600 animate-pulse">Đang giao</Badge>
       case "DA_GIAO": return <Badge className="bg-emerald-600">Hoàn thành</Badge>
       case "DA_HUY": return <Badge variant="destructive">Đã hủy</Badge>
@@ -272,10 +296,33 @@ export default function OrderManagementPage() {
   }
   const filteredVehicles = getAvailableVehicles();
 
-  const filteredOrders = orders.filter(o =>
-    o.ma_don_hang.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    o.khach_hang?.ho_ten.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const [activeTab, setActiveTab] = useState("ALL")
+
+  const getFilteredOrders = () => {
+    let result = orders;
+
+    // Filter by Tab
+    if (activeTab === "NEW") {
+      result = result.filter(o => ["TAO_MOI", "CHO_XAC_NHAN"].includes(o.trang_thai_don_hang));
+    } else if (activeTab === "DELIVERING") {
+      result = result.filter(o => ["DA_PHAN_CONG", "DANG_LAY_HANG", "DANG_VAN_CHUYEN"].includes(o.trang_thai_don_hang));
+    } else if (activeTab === "DONE") {
+      result = result.filter(o => ["DA_GIAO", "DA_HUY", "GIAO_KHONG_THANH_CONG"].includes(o.trang_thai_don_hang));
+    }
+
+    // Filter by Search
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      result = result.filter(o =>
+        o.ma_don_hang.toLowerCase().includes(s) ||
+        o.khach_hang?.ho_ten?.toLowerCase().includes(s)
+      );
+    }
+
+    return result;
+  }
+
+  const filteredOrders = getFilteredOrders();
 
   return (
     <main className="flex-1 overflow-y-auto p-6 space-y-6 h-full">
@@ -287,7 +334,7 @@ export default function OrderManagementPage() {
         <Button>Xuất Excel</Button>
       </div>
 
-      <Tabs defaultValue="ALL" className="w-full">
+      <Tabs defaultValue="ALL" className="w-full" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="ALL">Tất cả</TabsTrigger>
           <TabsTrigger value="NEW">Mới / Chờ xử lý</TabsTrigger>
@@ -377,6 +424,12 @@ export default function OrderManagementPage() {
                           <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsDetailOpen(true) }}>
                             <Eye className="w-4 h-4 mr-2" /> Xem chi tiết
                           </DropdownMenuItem>
+
+                          {order.trang_thai_don_hang === 'TAO_MOI' && (
+                            <DropdownMenuItem onClick={() => handleConfirm(order.id)}>
+                              <CheckCircle className="w-4 h-4 mr-2 text-green-600" /> Xác nhận đơn
+                            </DropdownMenuItem>
+                          )}
 
                           {['TAO_MOI', 'CHO_XAC_NHAN', 'DA_PHAN_CONG'].includes(order.trang_thai_don_hang) && (
                             <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsAssignOpen(true) }}>

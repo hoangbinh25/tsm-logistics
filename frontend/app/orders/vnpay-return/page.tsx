@@ -17,27 +17,63 @@ export default function VNPayReturnPage() {
 
     const [isSuccess, setIsSuccess] = useState(false)
     const [orderCode, setOrderCode] = useState("")
+    const [loading, setLoading] = useState(true)
+    const [syncError, setSyncError] = useState(false)
+    const [backendMessage, setBackendMessage] = useState("")
 
     useEffect(() => {
-        if (vnp_TxnRef) {
-            setOrderCode(vnp_TxnRef.split('_')[0])
-        }
-        if (vnp_ResponseCode === '00') {
-            setIsSuccess(true)
+        const syncPayment = async () => {
+            if (vnp_TxnRef) {
+                setOrderCode(vnp_TxnRef.split('_')[0])
+            }
 
-            const syncPaymentWithBackend = async () => {
+            if (vnp_ResponseCode === '00') {
                 try {
                     const queryString = window.location.search;
-                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8888/api"}/orders/vnpay-ipn${queryString}`, {
+                    // Đường dẫn chính xác là /orders/vnpay-ipn dựa trên backend route
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8888";
+                    const res = await fetch(`${baseUrl}/orders/vnpay-ipn${queryString}`, {
                         method: 'GET'
                     });
+
+                    const data = await res.json();
+                    console.log("Backend IPN Response:", data);
+
+                    if (res.ok && data.RspCode === '00') {
+                        setIsSuccess(true)
+                    } else {
+                        console.error("Backend confirm failed:", data);
+                        setBackendMessage(data.Message || "Lỗi xác thực giao dịch")
+                        setSyncError(true)
+                    }
                 } catch (error) {
                     console.error("Lỗi đồng bộ thanh toán:", error);
+                    setSyncError(true)
+                    setBackendMessage("Không thể kết nối tới máy chủ")
                 }
-            };
-            syncPaymentWithBackend();
-        }
+            } else {
+                setIsSuccess(false)
+            }
+            setLoading(false)
+        };
+
+        syncPayment();
     }, [vnp_ResponseCode, vnp_TxnRef])
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col">
+                <Header />
+                <main className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-slate-600">Đang xác thực giao dịch với hệ thống...</p>
+                    </div>
+                </main>
+                <Footer />
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -60,9 +96,13 @@ export default function VNPayReturnPage() {
                             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <XCircle className="w-10 h-10 text-red-600" />
                             </div>
-                            <h1 className="text-2xl font-bold text-slate-900 mb-2">Thanh toán thất bại</h1>
+                            <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                                {syncError ? "Lỗi đồng bộ dữ liệu" : "Thanh toán thất bại"}
+                            </h1>
                             <p className="text-slate-500 mb-6">
-                                Giao dịch cho đơn hàng <strong>{orderCode}</strong> đã bị hủy hoặc xảy ra lỗi.
+                                {syncError
+                                    ? `Lỗi: ${backendMessage}`
+                                    : `Giao dịch cho đơn hàng ${orderCode} đã bị hủy hoặc xảy ra lỗi.`}
                             </p>
                         </>
                     )}

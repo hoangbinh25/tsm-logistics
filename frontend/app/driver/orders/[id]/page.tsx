@@ -5,9 +5,10 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
-import { Phone, MapPin, ArrowLeft, Box } from "lucide-react"
+import { Phone, MapPin, ArrowLeft, Box, AlertTriangle } from "lucide-react"
 import toast from 'react-hot-toast'
 import { fetchWithAuth } from "@/utils/api"
+import { IncidentModal } from "@/components/driver/incident-modal"
 
 interface OrderDetail {
     id: string;
@@ -26,6 +27,7 @@ export default function DriverOrderDetail() {
     const router = useRouter()
     const [order, setOrder] = useState<OrderDetail | null>(null)
     const [loading, setLoading] = useState(false)
+    const [isIncidentOpen, setIsIncidentOpen] = useState(false)
 
     // 1. Hàm lấy chi tiết đơn hàng
     const fetchOrderDetail = useCallback(async () => {
@@ -112,8 +114,18 @@ export default function DriverOrderDetail() {
             <div className="bg-white p-4 flex items-center gap-4 shadow-sm sticky top-0 z-10">
                 <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft /></Button>
                 <h1 className="font-bold text-lg">Đơn {order.ma_don_hang}</h1>
-                <div className="ml-auto px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-bold">
-                    {order.trang_thai_don_hang}
+                <div className="ml-auto flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:bg-red-50 h-8 w-8"
+                        onClick={() => setIsIncidentOpen(true)}
+                    >
+                        <AlertTriangle className="w-5 h-5" />
+                    </Button>
+                    <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-bold">
+                        {order.trang_thai_don_hang}
+                    </div>
                 </div>
             </div>
 
@@ -143,6 +155,13 @@ export default function DriverOrderDetail() {
             <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t md:max-w-md md:mx-auto z-20">
                 {renderActionButton()}
             </div>
+
+            <IncidentModal
+                isOpen={isIncidentOpen}
+                onClose={() => setIsIncidentOpen(false)}
+                orderId={order.id}
+                orderCode={order.ma_don_hang}
+            />
         </div>
     )
 }
