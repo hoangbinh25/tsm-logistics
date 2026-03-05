@@ -2,13 +2,23 @@ import { Request, Response } from "express";
 import * as AuthService from "../services/auth.service";
 
 export async function login(req: Request, res: Response) {
-    const result = await AuthService.loginService(req.body);
-    res.json(result)
+    try {
+        const result = await AuthService.loginService(req.body);
+        res.json(result)
+    } catch (error: any) {
+        console.error("Login error: ", error)
+        res.status(401).json({ message: error.message || "Đăng nhập thất bại" })
+    }
 }
 
 export async function register(req: Request, res: Response) {
-    const result = await AuthService.registerService(req.body);
-    res.json(result)
+    try {
+        const result = await AuthService.registerService(req.body);
+        res.status(201).json(result)
+    } catch (error: any) {
+        console.error("Register error: ", error)
+        res.status(400).json({ message: error.message || "Đăng ký thất bại" })
+    }
 }
 
 export async function loginGoogle(req: Request, res: Response) {
