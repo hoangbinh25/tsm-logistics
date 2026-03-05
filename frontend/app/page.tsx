@@ -8,6 +8,8 @@ import { MapSection } from "@/components/map-section"
 import { CTASection } from "@/components/cta-section"
 import { Footer } from "@/components/footer"
 
+export const dynamic = "force-dynamic"
+
 async function getServices() {
   try {
 
