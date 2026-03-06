@@ -12,6 +12,8 @@ import driverRoute from './driver.route';
 import notificationRoute from './notification.route'
 import incidentRoute from './incident.route'
 import dashboardRoute from './dashboard.route'
+import scheduleRoute from './schedule.route'
+
 
 
 
@@ -38,6 +40,8 @@ router.use("/assign", assignOrderRoute)
 router.use("/revenue", revenueRoute)
 router.use("/services", transportServiceRoute)
 router.use("/dashboard", dashboardRoute)
+router.use("/schedules", scheduleRoute)
+
 
 
 export default router;

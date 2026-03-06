@@ -1,14 +1,15 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, ListChecks, User, Bell } from "lucide-react"
+import { Home, ListChecks, User, Bell, Calendar } from "lucide-react"
 
 export function DriverBottomNav() {
   const pathname = usePathname()
-  
+
   const navs = [
     { href: "/driver", label: "Trang chủ", icon: Home },
-    { href: "/driver/orders", label: "Lịch sử", icon: ListChecks },
+    { href: "/driver/schedule", label: "Lịch trực", icon: Calendar },
+    { href: "/driver/orders", label: "Lịch sử đơn", icon: ListChecks },
     { href: "/driver/notifications", label: "Thông báo", icon: Bell },
     { href: "/driver/profile", label: "Tài khoản", icon: User },
   ]

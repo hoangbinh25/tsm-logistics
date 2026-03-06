@@ -13,7 +13,11 @@
     "prisma:generate": "dotenv -e .env -- prisma generate",
     "prisma:studio": "dotenv -e .env -- prisma studio",
     "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "db:seed": "dotenv -e .env -- ts-node prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

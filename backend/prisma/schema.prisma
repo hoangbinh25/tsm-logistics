@@ -219,6 +219,7 @@ model TaiXeProfile {
   giay_to                TaiXeGiayTo[]
   don_hang_nhan   DonHang[]
   su_co           SuCo[]
+  lich_lam_viec   LichLamViec[]
 }
 
 model TaiXeGiayTo {
@@ -449,4 +450,21 @@ model ThanhToan {
   don_hang         DonHang            @relation(fields: [don_hang_id], references: [id])
 
   @@index([don_hang_id])
+}
+
+model LichLamViec {
+  id                 String          @id @db.Char(26)
+  tai_xe_id          String          @db.Char(26)
+  ngay_lam_viec      DateTime        @db.Date
+  ca_lam_viec        String?         // VD: "SANG", "CHIEU", "TOI", "CA_NGAY"
+  trang_thai         String          @default("CHO_DUYET") // CHO_DUYET, DA_DUYET, TU_CHOI
+  ghi_chu            String?         @db.Text
+  
+  thoi_gian_tao      DateTime        @default(now())
+  thoi_gian_cap_nhat DateTime       @updatedAt
+
+  tai_xe             TaiXeProfile    @relation(fields: [tai_xe_id], references: [id])
+
+  @@unique([tai_xe_id, ngay_lam_viec])
+  @@index([tai_xe_id])
 }
