@@ -353,7 +353,7 @@ export default function OrderDetailPage() {
                         </Card>
 
                         {/* Hành động thêm: Hủy đơn hàng */}
-                        {!['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG'].includes(order.trang_thai_don_hang) && (
+                        {!['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG', 'DANG_LAY_HANG', 'DANG_VAN_CHUYEN'].includes(order.trang_thai_don_hang) && (
                             <Card className="border-red-200 bg-red-50/30">
                                 <CardHeader>
                                     <CardTitle className="text-base text-red-700">Hủy đơn hàng</CardTitle>

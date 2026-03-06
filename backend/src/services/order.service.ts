@@ -580,7 +580,7 @@ export const cancelOrderService = async (orderId: string, userId: string) => {
     }
 
     // 3. Check if cancelable
-    const uncancelableStatuses = ['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG'];
+    const uncancelableStatuses = ['DA_GIAO', 'DA_HUY', 'GIAO_KHONG_THANH_CONG', 'DANG_LAY_HANG', 'DANG_VAN_CHUYEN'];
     if (uncancelableStatuses.includes(order.trang_thai_don_hang)) {
         throw new Error("STATUS_NOT_CANCELABLE");
     }

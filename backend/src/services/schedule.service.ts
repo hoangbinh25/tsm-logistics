@@ -2,7 +2,7 @@ import prisma from '../config/prisma';
 import { genId26 } from '../types/genID';
 
 export const registerScheduleService = async (userId: string, dates: { date: string, shift?: string, note?: string }[]) => {
-    const driverProfile = await prisma.taiXeProfile.findUnique({
+    const driverProfile: any = await prisma.taiXeProfile.findFirst({
         where: { nguoi_dung_id: userId }
     });
 
@@ -13,75 +13,61 @@ export const registerScheduleService = async (userId: string, dates: { date: str
     const results = [];
 
     for (const d of dates) {
-        const ngayLamViec = new Date(d.date);
+        const ngayLamViec = d.date; // Use string for Raw SQL to avoid date formatting issues
 
-        // Kiểm tra xem đã đăng ký ngày này chưa
-        const existing = await prisma.lichLamViec.findUnique({
-            where: {
-                tai_xe_id_ngay_lam_viec: {
-                    tai_xe_id: driverProfile.id,
-                    ngay_lam_viec: ngayLamViec
-                }
-            }
-        });
+        // Dùng Raw SQL để tránh lỗi Prisma Client chưa update
+        const existing: any[] = await prisma.$queryRawUnsafe(
+            `SELECT * FROM LichLamViec WHERE tai_xe_id = ? AND ngay_lam_viec = ?`,
+            driverProfile.id, ngayLamViec
+        );
 
-        if (existing) {
-            // Cập nhật nếu đã có (hoặc có thể bỏ qua tùy logic)
-            const updated = await prisma.lichLamViec.update({
-                where: { id: existing.id },
-                data: {
-                    ca_lam_viec: d.shift || existing.ca_lam_viec,
-                    ghi_chu: d.note || existing.ghi_chu,
-                    trang_thai: "CHO_DUYET"
-                }
-            });
-            results.push(updated);
+        if (existing.length > 0) {
+            await prisma.$executeRawUnsafe(
+                `UPDATE LichLamViec SET ca_lam_viec = ?, ghi_chu = ?, trang_thai = ?, thoi_gian_cap_nhat = NOW() WHERE id = ?`,
+                d.shift || existing[0].ca_lam_viec, d.note || existing[0].ghi_chu, "CHO_DUYET", existing[0].id
+            );
         } else {
-            // Tạo mới
-            const created = await prisma.lichLamViec.create({
-                data: {
-                    id: genId26(),
-                    tai_xe_id: driverProfile.id,
-                    ngay_lam_viec: ngayLamViec,
-                    ca_lam_viec: d.shift || "CA_NGAY",
-                    ghi_chu: d.note || "",
-                    trang_thai: "CHO_DUYET"
-                }
-            });
-            results.push(created);
+            const id = genId26();
+            await prisma.$executeRawUnsafe(
+                `INSERT INTO LichLamViec (id, tai_xe_id, ngay_lam_viec, ca_lam_viec, ghi_chu, trang_thai, thoi_gian_tao, thoi_gian_cap_nhat) 
+                 VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+                id, driverProfile.id, ngayLamViec, d.shift || "CA_NGAY", d.note || "", "CHO_DUYET"
+            );
         }
     }
 
-    return results;
+    return { message: "Đã đăng ký thành công" };
 };
 
 export const getDriverSchedulesService = async (userId: string) => {
-    const driverProfile = await prisma.taiXeProfile.findUnique({
+    const driverProfile: any = await prisma.taiXeProfile.findFirst({
         where: { nguoi_dung_id: userId }
     });
 
     if (!driverProfile) return [];
 
-    return await prisma.lichLamViec.findMany({
-        where: { tai_xe_id: driverProfile.id },
-        orderBy: { ngay_lam_viec: 'asc' }
-    });
+    // Dùng Raw SQL để lấy lịch
+    return await prisma.$queryRawUnsafe(
+        `SELECT * FROM LichLamViec WHERE tai_xe_id = ? ORDER BY ngay_lam_viec ASC`,
+        driverProfile.id
+    );
 };
 
 export const getAllSchedulesService = async () => {
-    return await prisma.lichLamViec.findMany({
-        orderBy: { ngay_lam_viec: 'desc' },
-        include: {
-            tai_xe: {
-                include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
-            }
-        }
-    });
+    // Phối hợp giữa Prisma và Raw SQL
+    const rawSchedules: any[] = await prisma.$queryRawUnsafe(
+        `SELECT s.*, u.ho_ten, u.so_dien_thoai 
+         FROM LichLamViec s
+         JOIN TaiXeProfile t ON s.tai_xe_id = t.id
+         JOIN NguoiDung u ON t.nguoi_dung_id = u.id
+         ORDER BY s.ngay_lam_viec DESC`
+    );
+    return rawSchedules;
 };
 
 export const updateScheduleStatusService = async (id: string, status: string) => {
-    return await prisma.lichLamViec.update({
-        where: { id },
-        data: { trang_thai: status }
-    });
+    return await prisma.$executeRawUnsafe(
+        `UPDATE LichLamViec SET trang_thai = ?, thoi_gian_cap_nhat = NOW() WHERE id = ?`,
+        status, id
+    );
 };
