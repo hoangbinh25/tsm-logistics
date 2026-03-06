@@ -115,14 +115,18 @@ export default function DriverOrderDetail() {
                 <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft /></Button>
                 <h1 className="font-bold text-lg">Đơn {order.ma_don_hang}</h1>
                 <div className="ml-auto flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:bg-red-50 h-8 w-8"
-                        onClick={() => setIsIncidentOpen(true)}
-                    >
-                        <AlertTriangle className="w-5 h-5" />
-                    </Button>
+                    {order.trang_thai_don_hang !== 'DA_GIAO' &&
+                        order.trang_thai_don_hang !== 'DA_HUY' &&
+                        order.trang_thai_don_hang !== 'GIAO_KHONG_THANH_CONG' && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:bg-red-50 h-8 w-8"
+                                onClick={() => setIsIncidentOpen(true)}
+                            >
+                                <AlertTriangle className="w-5 h-5" />
+                            </Button>
+                        )}
                     <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-bold">
                         {order.trang_thai_don_hang}
                     </div>

@@ -257,7 +257,7 @@ model DonHang {
   thoi_gian_du_kien_giao DateTime?
   thoi_gian_hoan_thanh   DateTime?
   ghi_chu                String?
-  ma_van_don_ngoai       String?           // Mã vận đơn từ GHTK, GHN, v.v.
+  ma_van_don_ngoai       String?           // Mã vận đơn từ đơn vị trung chuyển bên thứ 3
   nguoi_thanh_toan       NguoiThanhToan    @default(NGUOI_GUI)
   tien_cod               Decimal?          @db.Decimal(14,2) @default(0)
   thoi_gian_tao          DateTime          @default(now())

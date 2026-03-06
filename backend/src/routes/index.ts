@@ -10,8 +10,9 @@ import transportServiceRoute from "./transport-service.route"
 import orderRoute from "./order.route"
 import driverRoute from './driver.route';
 import notificationRoute from './notification.route'
-import ghtkRoute from './ghtk.route'
 import incidentRoute from './incident.route'
+import dashboardRoute from './dashboard.route'
+
 
 
 const router = Router();
@@ -24,7 +25,6 @@ router.use("/auth", authRoute)
 router.use("/users", userRoute)
 router.use("/orders", orderRoute)
 router.use('/drivers', driverRoute);
-router.use('/ghtk', ghtkRoute);
 router.use('/incidents', incidentRoute);
 
 
@@ -37,5 +37,7 @@ router.use("/warehouses", warehouseRoute)
 router.use("/assign", assignOrderRoute)
 router.use("/revenue", revenueRoute)
 router.use("/services", transportServiceRoute)
+router.use("/dashboard", dashboardRoute)
+
 
 export default router;

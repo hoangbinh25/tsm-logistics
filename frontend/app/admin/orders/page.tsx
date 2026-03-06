@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import {
   Search, Eye, MoreHorizontal, Truck, XCircle, Zap,
-  Loader2, CheckCircle
+  Loader2, CheckCircle, Download
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
@@ -22,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { fetchWithAuth } from "@/utils/api"
+import * as XLSX from 'xlsx'
+
 
 // Helper format tiền
 const formatCurrency = (amount: any) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount))
@@ -252,6 +254,44 @@ export default function OrderManagementPage() {
     }
   }
 
+  // 7. Xuất Excel
+  const handleExportExcel = () => {
+    if (orders.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Không có dữ liệu",
+        description: "Không có đơn hàng nào để xuất báo cáo."
+      })
+      return
+    }
+
+    const exportData = filteredOrders.map(order => ({
+      "Mã Đơn Hàng": order.ma_don_hang,
+      "Tên Khách Hàng": order.khach_hang?.ho_ten || "Khách lẻ",
+      "Số Điện Thoại": order.khach_hang?.so_dien_thoai || "---",
+      "Địa Chỉ Nhận": order.dia_chi_nhan || "---",
+      "Địa Chỉ Giao": order.dia_chi_giao || "---",
+      "Tài Xế": order.tai_xe?.nguoi_dung?.ho_ten || "Chưa phân công",
+      "Số ĐT Tài Xế": order.tai_xe?.nguoi_dung?.so_dien_thoai || "---",
+      "Biển Số Xe": order.phuong_tien?.bien_kiem_soat || "---",
+      "Phí Vận Chuyển": Number(order.phi_van_chuyen),
+      "Tổng Tiền": Number(order.tong_thanh_toan),
+      "Hình Thức Thanh Toán": order.hinh_thuc_thanh_toan,
+      "Trạng Thái": order.trang_thai_don_hang,
+      "Ngày Tạo": new Date(order.thoi_gian_tao).toLocaleString('vi-VN')
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders")
+    XLSX.writeFile(workbook, `TSM_Orders_${new Date().getTime()}.xlsx`)
+
+    toast({
+      title: "Xuất file thành công!",
+      description: "Báo cáo đơn hàng đã được tải xuống.",
+    })
+  }
+
   // Helper render UI
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -331,7 +371,9 @@ export default function OrderManagementPage() {
           <h1 className="text-2xl font-bold">Điều phối Đơn hàng</h1>
           <p className="text-sm text-muted-foreground">Quản lý và phân công vận chuyển</p>
         </div>
-        <Button>Xuất Excel</Button>
+        <Button onClick={handleExportExcel} variant="outline" className="gap-2">
+          <Download className="w-4 h-4" /> Xuất Excel
+        </Button>
       </div>
 
       <Tabs defaultValue="ALL" className="w-full" onValueChange={setActiveTab}>

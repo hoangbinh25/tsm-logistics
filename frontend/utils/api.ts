@@ -1,34 +1,36 @@
+import { apiClient } from "@/services/api.client";
+
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  // 1. Lấy token từ sessionStorage
-  const token = typeof window !== 'undefined' ? sessionStorage.getItem("accessToken") : null;
-
-  // 2. Gộp Header
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
-    ...(token ? { "Authorization": `Bearer ${token}` } : {})
-  };
-
   try {
-    // 3. Gọi fetch
-    const response = await fetch(url, {
-      ...options,
-      headers: headers as HeadersInit,
-    });
+    // 1. Chuyển đổi options từ Fetch sang Axios config
+    const config = {
+      url: url,
+      method: options.method || 'GET',
+      data: options.body ? JSON.parse(options.body as string) : undefined,
+      headers: (options.headers || {}) as any,
+      skipAuthCheck: (options as any).skipAuthCheck
+    };
 
-    if (response.status === 401 && !(options as any).skipAuthCheck) {
-      if (typeof window !== 'undefined') {
-        // Xóa token cũ
-        sessionStorage.removeItem("accessToken");
-        sessionStorage.removeItem("user");
+    // 2. Gọi bằng apiClient (đã có sẵn interceptor xử lý Token & Refresh Token)
+    const response = await apiClient(config);
 
-        window.location.href = "/login";
-        return Promise.reject("Phiên đăng nhập hết hạn");
-      }
+    // 3. Giả lập Response của Fetch để không làm gãy code cũ
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      json: async () => response.data,
+      text: async () => JSON.stringify(response.data),
+    } as any;
+
+  } catch (error: any) {
+    // Nếu là lỗi 401 và đã qua xử lý logout của interceptor
+    if (error.response?.status === 401) {
+      return {
+        ok: false,
+        status: 401,
+        json: async () => ({ message: "Phiên đăng nhập hết hạn" }),
+      } as any;
     }
-
-    return response;
-  } catch (error) {
     throw error;
   }
 };

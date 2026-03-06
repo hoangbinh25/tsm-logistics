@@ -11,6 +11,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
 import { fetchWithAuth } from "@/utils/api"
+import * as XLSX from 'xlsx'
+import toast from "react-hot-toast"
+
 
 // Helper format tiền Việt
 const formatVND = (value: number) =>
@@ -39,6 +42,26 @@ export default function RevenuePage() {
     if (isLoading) return <div className="p-8">Đang tải báo cáo...</div>
     if (!data) return <div className="p-8">Không có dữ liệu.</div>
 
+    const handleExportExcel = () => {
+        // Chuẩn bị dữ liệu từ stats
+        const exportData = [
+            { "Hạng mục": "Tổng Doanh Thu", "Giá trị": data.revenue },
+            { "Hạng mục": "Đơn hoàn thành", "Giá trị": data.orders.completed },
+            { "Hạng mục": "Đơn đã hủy", "Giá trị": data.orders.cancelled },
+            { "Hạng mục": "Tổng đơn hàng", "Giá trị": data.orders.total },
+            {},
+            { "Tháng": "Biểu đồ Doanh thu", "Doanh thu": "" },
+            ...data.chart.map((c: any) => ({ "Tháng": c.name, "Doanh thu": c.total }))
+        ]
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData)
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Revenue Report")
+        XLSX.writeFile(workbook, `TSM_Revenue_Report_${new Date().getTime()}.xlsx`)
+        toast.success("Đã tải xuống báo cáo doanh thu")
+    }
+
+
     return (
         <main className="flex-1 overflow-y-auto p-6 space-y-6 h-full">
             <div className="flex justify-between items-center">
@@ -48,7 +71,7 @@ export default function RevenuePage() {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" className="gap-2"><Calendar className="w-4 h-4" /> Chọn tháng</Button>
-                    <Button className="gap-2"><Download className="w-4 h-4" /> Xuất báo cáo</Button>
+                    <Button onClick={handleExportExcel} className="gap-2"><Download className="w-4 h-4" /> Xuất báo cáo</Button>
                 </div>
             </div>
 

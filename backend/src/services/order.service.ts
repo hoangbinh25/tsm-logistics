@@ -3,7 +3,6 @@ import { genId26 } from '../types/genID';
 import { sendDeliverySuccessEmail, sendOrderConfirmationEmail } from '../utils/mailer';
 import { HinhThucThanhToan, Prisma, TrangThaiDonHang } from '@prisma/client';
 import { checkMaintenanceAndNotify } from './fleet.service';
-import * as ghtkService from './ghtk.service';
 
 interface GetOrdersParams {
     userId: string;
@@ -35,148 +34,108 @@ export const createOrderService = async (params: CreateOrderParams): Promise<Cre
         prisma.dichVuVanChuyen.findUnique({ where: { id: serviceId } })
     ]);
 
-    if (!warehouse) throw new Error("Kho hàng không tồn tại");
-    if (!service) throw new Error("Dịch vụ không tồn tại");
+    if (!warehouse) throw new Error("Kho hàng không tồn tại: " + warehouseId);
+    if (!service) throw new Error("Dịch vụ không tồn tại: " + serviceId);
 
     // --- BƯỚC 1: TÍNH TOÁN TỔNG QUAN ---
     let totalWeight = 0;
     let totalPrice = 0;
 
     items.forEach((item: any) => {
-        totalWeight += Number(item.khoi_luong || 0);
-        totalPrice += Number(item.don_gia || 0) * Number(item.so_luong || 1);
+        const weight = Number(item.khoi_luong || item.weight || 0);
+        const price = Number(item.don_gia || item.value || item.gia_tri || 0);
+        const qty = Number(item.so_luong || item.quantity || 1);
+
+        totalWeight += weight;
+        totalPrice += price * qty;
     });
 
-    // Phí vận chuyển: Lấy từ giá cơ bản của dịch vụ + 5k/kg vượt (giả sử)
     const basePrice = Number(service.gia_co_ban);
-    const shippingFee = basePrice + (totalWeight * 2000); // Ví dụ: giá cơ bản + 2k mỗi kg
-
+    const shippingFee = basePrice + (totalWeight * 2000);
     const totalPayment = totalPrice + shippingFee;
+    const totalCod = items.reduce((sum: number, item: any) => sum + Number(item.tien_cod || item.codAmount || 0), 0);
 
-    // Tính tổng tiền COD (thông thường lấy từ payload của order hoặc sum các items)
-    const totalCod = items.reduce((sum: number, item: any) => sum + Number(item.tien_cod || 0), 0);
-
-    // Mã vận đơn: DH + 8 số cuối timestamp
-    const orderCode = `DH${Date.now().toString().slice(-8)}`;
-
+    // Sinh mã vận đơn ngẫu nhiên và an toàn hơn
+    const randStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const orderCode = `DH${Date.now().toString().slice(-6)}${randStr}`;
 
     // --- BƯỚC 2: TRANSACTION LƯU DB ---
-    const newOrder = await prisma.$transaction(async (tx) => {
-        const orderId = genId26();
+    try {
+        const newOrder = await prisma.$transaction(async (tx) => {
+            const orderId = genId26();
 
-        // A. Tạo đơn hàng
-        const order = await tx.donHang.create({
-            data: {
-                id: orderId,
-                ma_don_hang: orderCode,
-                khach_hang_id: userId,
-                nguoi_tao_id: userId,
-                kho_gui_id: warehouseId,
-                dia_chi_giao: senderAddress,
-                dia_chi_nhan: `${receiverInfo.name} - ${receiverInfo.phone} - ${receiverInfo.address}`,
+            const order = await tx.donHang.create({
+                data: {
+                    id: orderId,
+                    ma_don_hang: orderCode,
+                    khach_hang_id: userId,
+                    nguoi_tao_id: userId,
+                    kho_gui_id: warehouseId,
+                    dia_chi_giao: senderAddress || "Chưa xác định",
+                    dia_chi_nhan: `${receiverInfo.name} - ${receiverInfo.phone} - ${receiverInfo.address}`,
 
-                tong_khoi_luong: totalWeight,
-                tong_tien_hang: totalPrice,
-                phi_van_chuyen: shippingFee,
-                giam_gia: 0,
-                tong_thanh_toan: totalPayment,
+                    tong_khoi_luong: totalWeight,
+                    tong_tien_hang: totalPrice,
+                    phi_van_chuyen: shippingFee,
+                    giam_gia: 0,
+                    tong_thanh_toan: totalPayment,
 
-                trang_thai_don_hang: 'TAO_MOI',
-                hinh_thuc_thanh_toan: paymentMethod as HinhThucThanhToan,
-                nguoi_thanh_toan: payer === 'RECEIVER' ? 'NGUOI_NHAN' : 'NGUOI_GUI',
-                tien_cod: totalCod,
-                ghi_chu: note || "",
-                thoi_gian_dat: new Date(),
-            },
-            include: {
-                khach_hang: { select: { email: true, ho_ten: true } },
-                kho_gui: true,
-                chi_tiet: {
-                    include: {
-                        dich_vu: true
-                    }
+                    trang_thai_don_hang: 'TAO_MOI',
+                    hinh_thuc_thanh_toan: (paymentMethod || 'COD') as HinhThucThanhToan,
+                    nguoi_thanh_toan: payer === 'RECEIVER' ? 'NGUOI_NHAN' : 'NGUOI_GUI',
+                    tien_cod: totalCod,
+                    ghi_chu: note || "",
+                    thoi_gian_dat: new Date(),
+                },
+                include: {
+                    khach_hang: { select: { email: true, ho_ten: true } },
+                    kho_gui: true
                 }
-            }
-        });
-
-        // B. Tạo chi tiết đơn hàng
-        if (items.length > 0) {
-            await tx.chiTietDonHang.createMany({
-                data: items.map((item: any) => ({
-                    id: genId26(),
-                    don_hang_id: orderId,
-                    ma_dich_vu: serviceId,
-                    ten_hang_hoa: item.ten_hang || item.name,
-                    mo_ta: item.mo_ta || "",
-                    so_luong: Number(item.so_luong),
-                    don_vi_tinh: item.don_vi || "Kiện",
-                    khoi_luong: Number(item.khoi_luong || item.weight),
-                    don_gia: Number(item.don_gia || item.value || item.gia_tri),
-                    thanh_tien: Number(item.don_gia || item.value || item.gia_tri) * Number(item.so_luong),
-                    kich_thuoc: item.kich_thuoc || ""
-                }))
             });
-        }
 
-        return order;
-    });
-
-    // --- BƯỚC 3: PUSH SANG GHTK (NẾU CHỌN GHTK) ---
-    if (service.ma_dich_vu.includes('GHTK')) {
-        try {
-            const addrParts = receiverInfo.address.split(',').map(s => s.trim());
-            const province = addrParts[addrParts.length - 1];
-            const district = addrParts[addrParts.length - 2];
-
-            const ghtkOrder = await ghtkService.createGHTKOrder({
-                id: newOrder.ma_don_hang,
-                pick_name: warehouse.ten_kho,
-                pick_tel: "0988888888",
-                pick_address: warehouse.dia_chi,
-                pick_province: warehouse.tinh_thanh,
-                pick_district: warehouse.quan_huyen,
-                pick_money: paymentMethod === 'COD' ? totalPayment : 0,
-                tel: receiverInfo.phone,
-                name: receiverInfo.name,
-                address: receiverInfo.address,
-                province: province,
-                district: district,
-                is_freeship: paymentMethod === 'COD' ? "0" : "1",
-                weight: totalWeight * 1000, // Chuyển sang grams
-                note: note || ""
-            }, items);
-
-            if (ghtkOrder.success) {
-                await prisma.donHang.update({
-                    where: { id: newOrder.id },
-                    data: { ma_van_don_ngoai: ghtkOrder.order.label }
+            if (items.length > 0) {
+                await tx.chiTietDonHang.createMany({
+                    data: items.map((item: any) => {
+                        const price = Number(item.don_gia || item.value || item.gia_tri || 0);
+                        const qty = Number(item.so_luong || item.quantity || 1);
+                        return {
+                            id: genId26(),
+                            don_hang_id: orderId,
+                            ma_dich_vu: serviceId,
+                            ten_hang_hoa: item.ten_hang || item.ten_hang_hoa || item.name || "Hàng hóa",
+                            mo_ta: item.mo_ta || "",
+                            so_luong: qty,
+                            don_vi_tinh: item.don_vi || item.don_vi_tinh || "Kiện",
+                            khoi_luong: Number(item.khoi_luong || item.weight || 0),
+                            don_gia: price,
+                            thanh_tien: price * qty,
+                            kich_thuoc: item.kich_thuoc || ""
+                        }
+                    })
                 });
             }
-        } catch (error) {
-            console.error("Lỗi đẩy đơn sang GHTK:", error);
+
+            return order;
+        });
+
+        // --- BƯỚC 4: GỬI MAIL ---
+        if (newOrder.khach_hang?.email && paymentMethod === 'COD') {
+            const emailData = {
+                ma_don_hang: newOrder.ma_don_hang,
+                tong_thanh_toan: newOrder.tong_thanh_toan,
+                hinh_thuc_thanh_toan: newOrder.hinh_thuc_thanh_toan,
+                receiverName: receiverInfo.name,
+                receiverPhone: receiverInfo.phone
+            };
+            sendOrderConfirmationEmail(newOrder.khach_hang.email, emailData).catch(e => console.error("📧 Lỗi gửi mail:", e));
         }
+
+        return { order: newOrder };
+
+    } catch (dbError: any) {
+        console.error("CRITICAL: Create Order DB Error:", dbError);
+        throw new Error(`Lỗi lưu đơn hàng: ${dbError.message}`);
     }
-
-    // --- BƯỚC 5: GỬI MAIL XÁC NHẬN (BACKGROUND) ---
-    // Chỉ gửi ngay nếu là COD. Nếu là ONLINE thì đợi thanh toán thành công mới gửi (ở payment controller)
-    if (newOrder.khach_hang?.email && paymentMethod === 'COD') {
-        const emailData = {
-            ma_don_hang: newOrder.ma_don_hang,
-            tong_thanh_toan: newOrder.tong_thanh_toan,
-            hinh_thuc_thanh_toan: newOrder.hinh_thuc_thanh_toan,
-            receiverName: receiverInfo.name,
-            receiverPhone: receiverInfo.phone
-        };
-
-        // Không await để return nhanh
-        sendOrderConfirmationEmail(newOrder.khach_hang.email, emailData)
-            .catch(err => console.error("📧 Lỗi gửi mail:", err));
-    }
-
-    // --- BƯỚC 5: TRẢ KẾT QUẢ ---
-    return {
-        order: newOrder
-    };
 };
 
 export const getOrdersService = async ({ userId, role, type }: GetOrdersParams) => {
@@ -193,7 +152,7 @@ export const getOrdersService = async ({ userId, role, type }: GetOrdersParams) 
         if (driverProfile) {
             whereClause.tai_xe_id = driverProfile.id;
         } else {
-            // Nếu là tài xế mà chưa có profile -> không thấy đơn nào
+            // Nếu là tài xế mà ch ưa có profile -> không thấy đơn nào
             return [];
         }
 
@@ -231,7 +190,8 @@ export const getOrdersService = async ({ userId, role, type }: GetOrdersParams) 
                 }
             },
             phuong_tien: true,
-            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } }
+            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } },
+            su_co: true
         }
     });
 };
@@ -249,7 +209,8 @@ export const getTrackingOrderService = async (code: string, viewerId: string, ro
                 include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
             },
             phuong_tien: true,
-            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } }
+            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } },
+            su_co: true
         }
     });
 
@@ -281,7 +242,8 @@ export const getOrderByIdService = async (orderId: string) => {
                 include: { nguoi_dung: { select: { ho_ten: true, so_dien_thoai: true } } }
             },
             phuong_tien: true,
-            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } }
+            thanh_toan: { take: 1, orderBy: { thoi_gian_tao: 'desc' } },
+            su_co: true
         }
     });
 };

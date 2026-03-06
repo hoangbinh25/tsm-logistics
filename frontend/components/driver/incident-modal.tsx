@@ -55,7 +55,8 @@ export function IncidentModal({ isOpen, onClose, orderId, orderCode }: IncidentM
                 toast.error(error.message || "Lỗi khi gửi báo cáo")
             }
         } catch (err: any) {
-            toast.error("Lỗi kết nối hệ thống")
+            console.error("Incident Report Error:", err)
+            toast.error(err.message || "Lỗi kết nối hệ thống")
         } finally {
             setLoading(false)
         }

@@ -1,6 +1,6 @@
 "use client"
 
-import { ShippingNav } from "@/components/admin/shipping-nav" 
+import { ShippingNav } from "@/components/admin/shipping-nav"
 import { ShippingStats } from "@/components/admin/shipping-stats"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,10 @@ import { useAuth } from "@/context/AuthContext"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
+import { fetchWithAuth } from "@/utils/api"
+import { format } from "date-fns"
+import { vi } from "date-fns/locale"
+
 
 const activeShipments = [
   { id: "VN-8829", status: "Đang vận chuyển", origin: "Hà Nội", dest: "Đà Nẵng", eta: "14:30", driver: "Nguyễn Văn A" },
@@ -60,6 +64,38 @@ const MapPlaceholder = () => (
 
 export default function ShippingDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard")
+  const [stats, setStats] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats`)
+        if (res.ok) {
+          const data = await res.json()
+          setStats(data)
+        }
+      } catch (error) {
+        console.error("Lỗi tải stats dashboard:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchStats()
+  }, [])
+
+  const getStatusLabel = (status: string) => {
+    const map: any = {
+      'TAO_MOI': 'Mới tạo',
+      'CHO_XAC_NHAN': 'Chờ XN',
+      'DA_PHAN_CONG': 'Đã phân công',
+      'DANG_LAY_HANG': 'Đang lấy hàng',
+      'DANG_VAN_CHUYEN': 'Đang giao',
+      'DA_GIAO': 'Đã giao',
+      'DA_HUY': 'Đã hủy'
+    }
+    return map[status] || status
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -79,8 +115,8 @@ export default function ShippingDashboard() {
                   {activeTab === "revenue" && "Báo cáo doanh thu"}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  {activeTab === "dashboard" && "Theo dõi lộ trình nội địa thời gian thực"}
-                  {activeTab === "fleet" && "Quản lý 42 phương tiện trong hệ thống"}
+                  {activeTab === "dashboard" && `Theo dõi ${stats?.orders?.active || 0} vận đơn đang thực hiện`}
+                  {activeTab === "fleet" && `Quản lý ${stats?.fleet?.total || 0} phương tiện trong hệ thống`}
                   {activeTab === "routes" && "Định vị GPS và tối ưu hóa đường đi"}
                 </p>
               </div>
@@ -96,7 +132,12 @@ export default function ShippingDashboard() {
 
             {activeTab === "dashboard" && (
               <>
-                <ShippingStats />
+                {stats && (
+                  <ShippingStats
+                    chartData={stats.chart}
+                    fleetStats={stats.fleet}
+                  />
+                )}
                 {/* Table Section */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
@@ -126,20 +167,19 @@ export default function ShippingDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {activeShipments.map((ship) => (
+                        {isLoading ? (
+                          <tr><td colSpan={6} className="text-center py-10">Đang tải dữ liệu...</td></tr>
+                        ) : stats?.activeShipments.map((ship: any) => (
                           <tr key={ship.id} className="hover:bg-muted/20 transition-colors">
                             <td className="px-6 py-4 font-mono text-primary">{ship.id}</td>
                             <td className="px-6 py-4">
                               <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  ship.status === "Đã giao"
-                                    ? "bg-emerald-500/10 text-emerald-500"
-                                    : ship.status === "Chuẩn bị"
-                                      ? "bg-amber-500/10 text-amber-500"
-                                      : "bg-primary/10 text-primary"
-                                }`}
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${ship.status === "DA_GIAO"
+                                  ? "bg-emerald-500/10 text-emerald-500"
+                                  : "bg-primary/10 text-primary"
+                                  }`}
                               >
-                                {ship.status}
+                                {getStatusLabel(ship.status)}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -149,7 +189,9 @@ export default function ShippingDashboard() {
                                 <span>{ship.dest}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-muted-foreground">{ship.eta}</td>
+                            <td className="px-6 py-4 text-muted-foreground">
+                              {format(new Date(ship.updatedAt), "HH:mm dd/MM", { locale: vi })}
+                            </td>
                             <td className="px-6 py-4">{ship.driver}</td>
                             <td className="px-6 py-4 text-right">
                               <Button variant="ghost" size="icon" className="h-8 w-8">

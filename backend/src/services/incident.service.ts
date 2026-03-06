@@ -24,6 +24,25 @@ export const reportIncidentService = async (params: ReportIncidentParams) => {
         throw new Error("Không tìm thấy hồ sơ tài xế");
     }
 
+    // 2. Nếu có donHangId, kiểm tra trạng thái đơn hàng
+    if (donHangId) {
+        const order = await prisma.donHang.findUnique({
+            where: { id: donHangId }
+        });
+
+        if (!order) {
+            throw new Error("Không tìm thấy đơn hàng để báo cáo sự cố");
+        }
+
+        if (order.trang_thai_don_hang === 'DA_GIAO') {
+            throw new Error("Đơn hàng này đã giao thành công. Không thể báo cáo sự cố vào thời điểm này.");
+        }
+
+        if (order.trang_thai_don_hang === 'DA_HUY' || order.trang_thai_don_hang === 'GIAO_KHONG_THANH_CONG') {
+            throw new Error("Đơn hàng đã kết thúc hoặc bị hủy, không thể báo cáo sự cố.");
+        }
+    }
+
     // 2. Tạo sự cố trong DB
     const suCo = await prisma.suCo.create({
         data: {
@@ -55,12 +74,12 @@ export const reportIncidentService = async (params: ReportIncidentParams) => {
     });
 
     if (admins.length > 0) {
+        const driverName = suCo.tai_xe?.nguoi_dung?.ho_ten || "Tài xế";
         await prisma.thongBao.createMany({
             data: admins.map(admin => ({
-                id: `TB${genId26()}`, // Tùy vào schema model thông báo, hiện tại ThongBao dùng cuid()
                 nguoi_nhan_id: admin.id,
                 tieu_de: "Báo cáo sự cố mới!",
-                noi_dung: `Tài xế ${suCo.tai_xe.nguoi_dung.ho_ten} vừa báo cáo sự cố: ${loaiSuCo}.`,
+                noi_dung: `Tài xế ${driverName} vừa báo cáo sự cố: ${loaiSuCo}.`,
                 loai_thong_bao: "INCIDENT"
             }))
         });

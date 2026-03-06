@@ -4,8 +4,10 @@ import { useState, useEffect } from "react"
 import {
     AlertTriangle, CheckCircle2, Clock, Eye,
     MapPin, User, Package, Filter, Search,
-    MoreHorizontal, MessageSquare
+    MoreHorizontal, MessageSquare, Download
 } from "lucide-react"
+import * as XLSX from 'xlsx'
+
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -71,11 +73,14 @@ export default function IncidentsAdminPage() {
         }
     }
 
-    const filteredIncidents = incidents.filter(i =>
-        i.tai_xe?.nguoi_dung?.ho_ten.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        i.loai_su_co.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        i.don_hang?.ma_don_hang?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredIncidents = incidents.filter(i => {
+        const searchTermLower = searchTerm.toLowerCase();
+        return (
+            i.tai_xe?.nguoi_dung?.ho_ten?.toLowerCase().includes(searchTermLower) ||
+            i.loai_su_co?.toLowerCase().includes(searchTermLower) ||
+            (i.don_hang?.ma_don_hang && i.don_hang.ma_don_hang.toLowerCase().includes(searchTermLower))
+        );
+    })
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -99,6 +104,32 @@ export default function IncidentsAdminPage() {
         return map[type] || type
     }
 
+    const handleExportExcel = () => {
+        if (incidents.length === 0) {
+            toast.error("Không có dữ liệu sự cố để xuất")
+            return
+        }
+
+        const exportData = filteredIncidents.map(i => ({
+            "Thời Gian": format(new Date(i.thoi_gian_tao), "HH:mm dd/MM/yyyy"),
+            "Tài Xế": i.tai_xe?.nguoi_dung?.ho_ten || "N/A",
+            "SĐT Tài Xế": i.tai_xe?.nguoi_dung?.so_dien_thoai || "N/A",
+            "Loại Sự Cố": getIncidentTypeLabel(i.loai_su_co),
+            "Mô Tả": i.mo_ta,
+            "Đơn Hàng": i.don_hang?.ma_don_hang || "KHÔNG CÓ",
+            "Vị Trí": i.vi_tri || "---",
+            "Trạng Thái": i.trang_thai,
+            "Ghi Chú Admin": i.ghi_chu_quan_ly || ""
+        }))
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData)
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Incidents")
+        XLSX.writeFile(workbook, `TSM_Incidents_${new Date().getTime()}.xlsx`)
+        toast.success("Đã xuất file báo cáo sự cố")
+    }
+
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -108,6 +139,9 @@ export default function IncidentsAdminPage() {
                     </h1>
                     <p className="text-sm text-muted-foreground">Theo dõi và xử lý các vấn đề phát sinh từ tài xế đường trường.</p>
                 </div>
+                <Button onClick={handleExportExcel} variant="outline" className="gap-2">
+                    <Download className="w-4 h-4" /> Xuất Excel
+                </Button>
             </div>
 
             <div className="flex items-center gap-3">
